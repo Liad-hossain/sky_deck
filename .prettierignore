@@ -1,0 +1,10 @@
+node_modules
+dist
+build
+.cache
+public
+*.min.js
+*.min.css
+supabase/migrations/*.sql
+supabase/email-templates/*.html
+package-lock.json

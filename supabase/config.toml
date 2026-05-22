@@ -1,0 +1,7 @@
+# id is the Supabase project reference (from your project URL)
+# Only needed for local CLI usage; not required for hosted Supabase.
+[api]
+port = 54321
+
+[db]
+port = 54322

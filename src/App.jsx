@@ -1,0 +1,123 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { isSupabaseConfigured, supabaseConfigError } from './lib/supabase';
+import SignUp from './pages/SignUp';
+import SignIn from './pages/SignIn';
+import Dashboard from './pages/Dashboard';
+import VerifyEmail from './pages/VerifyEmail';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import Profile from './pages/Profile';
+
+function SetupRequiredScreen() {
+  return (
+    <div className="flex min-h-screen items-center justify-center p-6">
+      <div className="glass w-full max-w-2xl rounded-3xl p-8 text-white">
+        <h1 className="gradient-text mb-4 text-2xl font-bold">
+          Supabase configuration required
+        </h1>
+        <p className="mb-4 text-gray-300">{supabaseConfigError}</p>
+        <div className="space-y-1 rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-gray-200">
+          <p>
+            1. Create or update your <code>.env</code> file.
+          </p>
+          <p>
+            2. Add <code>VITE_SUPABASE_URL</code> and
+            <code> VITE_SUPABASE_ANON_KEY</code>.
+          </p>
+          <p>3. Restart the dev server.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProtectedRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
+  return user ? children : <Navigate to="/signin" />;
+}
+
+function GuestRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
+  return !user ? children : <Navigate to="/dashboard" />;
+}
+
+function LoadingScreen() {
+  return (
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="h-12 w-12 animate-spin rounded-full border-4 border-indigo-400 border-t-transparent" />
+    </div>
+  );
+}
+
+export default function App() {
+  if (!isSupabaseConfigured) {
+    return <SetupRequiredScreen />;
+  }
+
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            style: {
+              background: 'rgba(30,20,60,0.9)',
+              color: '#fff',
+              border: '1px solid rgba(255,255,255,0.1)',
+              backdropFilter: 'blur(8px)',
+            },
+          }}
+        />
+        <Routes>
+          <Route path="/" element={<Navigate to="/signin" />} />
+          <Route
+            path="/signup"
+            element={
+              <GuestRoute>
+                <SignUp />
+              </GuestRoute>
+            }
+          />
+          <Route
+            path="/signin"
+            element={
+              <GuestRoute>
+                <SignIn />
+              </GuestRoute>
+            }
+          />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route
+            path="/forgot-password"
+            element={
+              <GuestRoute>
+                <ForgotPassword />
+              </GuestRoute>
+            }
+          />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}
