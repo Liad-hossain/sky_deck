@@ -1,6 +1,6 @@
 # Sky Deck
 
-Activity intelligence dashboard — deployed on Netlify, powered by Supabase.
+Sky Deck is a personal activity intelligence dashboard that aggregates your developer activity across platforms — GitHub, Jira, Slack etc. — into a single view. It tracks connected integrations, surfaces AI-generated summaries of your work, and provides a live uptime feed, all behind a secure Supabase-powered auth system.
 
 ## Quick Start
 
@@ -9,24 +9,6 @@ npm install
 cp .env.example .env   # fill in your Supabase credentials
 npm run dev
 ```
-
-## Supabase Setup
-
-1. Create a project at [supabase.com](https://supabase.com).
-2. Copy **Project URL** and **anon public key** into `.env`.
-3. In Supabase Dashboard → Authentication → Settings:
-   - Enable **Email** provider.
-   - Set **Site URL** to your Netlify URL (or `http://localhost:5173` for dev).
-   - Set **Redirect URLs** to include `http://localhost:5173/dashboard` and your production URL.
-4. Supabase handles email verification emails automatically via its built-in SMTP (or configure a custom SMTP under Auth → SMTP Settings).
-
-## Deploy to Netlify
-
-1. Push repo to GitHub.
-2. Connect repo in Netlify.
-3. Build command: `npm run build` | Publish dir: `dist`.
-4. Add environment variables `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
-5. Deploy!
 
 ## Tech Stack
 
