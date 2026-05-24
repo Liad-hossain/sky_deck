@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import githubRoutes from '../../src/platforms/github/routes.js';
+import { githubRoutes } from '../../src/platforms/github/routes.js';
 
 // basePath() returns a NEW instance — must be assigned, not called in-place.
 const app = new Hono().basePath('/api');
@@ -11,7 +11,6 @@ app.get('/health', (c) =>
 app.route('/platforms/github', githubRoutes);
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404));
-
 
 export const handler = async (event) => {
   const {
