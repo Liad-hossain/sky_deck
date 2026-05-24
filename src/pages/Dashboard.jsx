@@ -10,7 +10,20 @@ import {
   HiOutlineChartBar,
   HiOutlineLightningBolt,
   HiOutlinePencil,
+  HiOutlineLink,
 } from 'react-icons/hi';
+import {
+  SiGithub,
+  SiGitlab,
+  SiJira,
+  SiSlack,
+  SiNotion,
+  SiLinear,
+  SiTrello,
+  SiFigma,
+  SiAsana,
+  SiDiscord,
+} from 'react-icons/si';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 
@@ -23,60 +36,79 @@ const item = {
   show: { y: 0, opacity: 1 },
 };
 
-const statCards = [
-  {
-    label: 'Connected Platforms',
-    value: '0',
-    icon: HiOutlineGlobe,
-    color: 'from-indigo-500 to-blue-500',
+const PLATFORM_META = {
+  github: {
+    icon: SiGithub,
+    iconColor: 'text-white',
+    bg: 'from-gray-700 to-gray-900',
+    border: 'border-gray-500/40',
   },
-  {
-    label: 'Activities Tracked',
-    value: '0',
-    icon: HiOutlineChartBar,
-    color: 'from-purple-500 to-pink-500',
+  gitlab: {
+    icon: SiGitlab,
+    iconColor: 'text-orange-400',
+    bg: 'from-orange-900/40 to-gray-900',
+    border: 'border-orange-500/40',
   },
-  {
-    label: 'AI Summaries',
-    value: '0',
-    icon: HiOutlineSparkles,
-    color: 'from-amber-500 to-orange-500',
+  jira: {
+    icon: SiJira,
+    iconColor: 'text-blue-400',
+    bg: 'from-blue-900/40 to-gray-900',
+    border: 'border-blue-500/40',
   },
-  {
-    label: 'Uptime',
-    value: '—',
-    icon: HiOutlineLightningBolt,
-    color: 'from-emerald-500 to-teal-500',
+  slack: {
+    icon: SiSlack,
+    iconColor: 'text-green-400',
+    bg: 'from-green-900/40 to-gray-900',
+    border: 'border-green-500/40',
   },
-];
-
-const platformCards = [
-  {
-    name: 'GitHub',
-    emoji: '🐙',
-    status: 'Coming soon',
-    color: 'border-gray-600',
+  notion: {
+    icon: SiNotion,
+    iconColor: 'text-white',
+    bg: 'from-neutral-700 to-gray-900',
+    border: 'border-neutral-500/40',
   },
-  {
-    name: 'Jira',
-    emoji: '📋',
-    status: 'Coming soon',
-    color: 'border-blue-600',
+  linear: {
+    icon: SiLinear,
+    iconColor: 'text-violet-400',
+    bg: 'from-violet-900/40 to-gray-900',
+    border: 'border-violet-500/40',
   },
-  {
-    name: 'Slack',
-    emoji: '💬',
-    status: 'Coming soon',
-    color: 'border-green-600',
+  trello: {
+    icon: SiTrello,
+    iconColor: 'text-sky-400',
+    bg: 'from-sky-900/40 to-gray-900',
+    border: 'border-sky-500/40',
   },
-];
+  figma: {
+    icon: SiFigma,
+    iconColor: 'text-pink-400',
+    bg: 'from-pink-900/40 to-gray-900',
+    border: 'border-pink-500/40',
+  },
+  asana: {
+    icon: SiAsana,
+    iconColor: 'text-rose-400',
+    bg: 'from-rose-900/40 to-gray-900',
+    border: 'border-rose-500/40',
+  },
+  discord: {
+    icon: SiDiscord,
+    iconColor: 'text-indigo-400',
+    bg: 'from-indigo-900/40 to-gray-900',
+    border: 'border-indigo-500/40',
+  },
+};
 
 export default function Dashboard() {
-  const { user, getProfile } = useAuth();
+  const { user, getProfile, getConnectedPlatforms } = useAuth();
   const [profile, setProfile] = useState(null);
+  const [connectedPlatforms, setConnectedPlatforms] = useState([]);
 
   useEffect(() => {
     getProfile().then(({ profile: p }) => p && setProfile(p));
+    getConnectedPlatforms().then(({ platforms }) =>
+      setConnectedPlatforms(platforms)
+    );
   }, []);
 
   const createdAt = user?.created_at
@@ -172,7 +204,32 @@ export default function Dashboard() {
             animate="show"
             className="mb-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4"
           >
-            {statCards.map((card) => (
+            {[
+              {
+                label: 'Connected Platforms',
+                value: connectedPlatforms.length,
+                icon: HiOutlineGlobe,
+                color: 'from-indigo-500 to-blue-500',
+              },
+              {
+                label: 'Activities Tracked',
+                value: 0,
+                icon: HiOutlineChartBar,
+                color: 'from-purple-500 to-pink-500',
+              },
+              {
+                label: 'AI Summaries',
+                value: 0,
+                icon: HiOutlineSparkles,
+                color: 'from-amber-500 to-orange-500',
+              },
+              {
+                label: 'Uptime',
+                value: '—',
+                icon: HiOutlineLightningBolt,
+                color: 'from-emerald-500 to-teal-500',
+              },
+            ].map((card) => (
               <motion.div
                 key={card.label}
                 variants={item}
@@ -190,30 +247,81 @@ export default function Dashboard() {
             ))}
           </motion.section>
 
-          {/* Platforms */}
+          {/* Connected Platforms */}
           <motion.section
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.4 }}
           >
-            <h3 className="mb-4 text-xl font-bold text-white">Platforms</h3>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-              {platformCards.map((platform) => (
-                <motion.div
-                  key={platform.name}
-                  whileHover={{ y: -4, scale: 1.02 }}
-                  className={`glass rounded-2xl border-t-2 p-6 text-center ${platform.color} cursor-default`}
-                >
-                  <div className="mb-3 text-4xl">{platform.emoji}</div>
-                  <h4 className="text-lg font-semibold text-white">
-                    {platform.name}
-                  </h4>
-                  <span className="mt-2 inline-block rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-400">
-                    {platform.status}
-                  </span>
-                </motion.div>
-              ))}
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-white">
+                Connected Platforms
+              </h3>
+              <Link
+                to="/integrations"
+                className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-gray-400 transition hover:border-indigo-500/50 hover:text-white"
+              >
+                <HiOutlineLink className="text-sm" />
+                Manage
+              </Link>
             </div>
+
+            {connectedPlatforms.length === 0 ? (
+              <div className="glass rounded-2xl border border-dashed border-white/10 p-10 text-center">
+                <p className="text-gray-400">No platforms connected yet.</p>
+                <Link
+                  to="/integrations"
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-2 text-sm font-medium text-indigo-300 transition hover:bg-indigo-500/20"
+                >
+                  <HiOutlineLink />
+                  Connect a platform
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {connectedPlatforms.map((platform) => {
+                  const meta = PLATFORM_META[platform.platform_type] ?? {
+                    icon: HiOutlineGlobe,
+                    iconColor: 'text-gray-300',
+                    bg: 'from-gray-700 to-gray-900',
+                    border: 'border-gray-500/40',
+                  };
+                  const Icon = meta.icon;
+                  return (
+                    <motion.div
+                      key={platform.id}
+                      whileHover={{ y: -4, scale: 1.02 }}
+                      className={`glass rounded-2xl border p-6 ${meta.border}`}
+                    >
+                      <div className="mb-3 flex items-center gap-3">
+                        <div
+                          className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${meta.bg} shadow-lg`}
+                        >
+                          <Icon className={`text-xl ${meta.iconColor}`} />
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-white">
+                            {platform.title}
+                          </h4>
+                          <span className="text-xs text-emerald-400">
+                            ● Active
+                          </span>
+                        </div>
+                      </div>
+                      {platform.connected_at && (
+                        <p className="text-xs text-gray-500">
+                          Connected{' '}
+                          {new Date(platform.connected_at).toLocaleDateString(
+                            'en-US',
+                            { month: 'short', day: 'numeric', year: 'numeric' }
+                          )}
+                        </p>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
           </motion.section>
 
           {/* AI Summary Teaser */}

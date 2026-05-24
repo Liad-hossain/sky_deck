@@ -5,6 +5,15 @@ import {
   supabaseConfigError,
 } from '../lib/supabase';
 import { uploadToCloudinary } from '../lib/cloudinary';
+import {
+  fetchProfile,
+  updateProfileFields,
+  fetchAllPlatforms,
+  fetchConnectedPlatforms,
+  insertOrUpdatePlatformConnection,
+  removePlatformConnection,
+  archivePlatform,
+} from '../db';
 
 const AuthContext = createContext({});
 
@@ -128,17 +137,7 @@ export function AuthProvider({ children }) {
     if (!isSupabaseConfigured || !supabase || !user) {
       return { error: new Error('Not authenticated') };
     }
-
-    const updates = { updated_at: new Date().toISOString() };
-    if (full_name !== undefined) updates.full_name = full_name;
-    if (avatar_url !== undefined) updates.avatar_url = avatar_url;
-
-    const { error } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('id', user.id);
-
-    return { error };
+    return updateProfileFields(user.id, { full_name, avatar_url });
   };
 
   // Fetch the profile row for the current user
@@ -146,14 +145,63 @@ export function AuthProvider({ children }) {
     if (!isSupabaseConfigured || !supabase || !user) {
       return { profile: null, error: new Error('Not authenticated') };
     }
+    return fetchProfile(user.id);
+  };
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
+  // Fetch all non-archived platform rows (connected + disconnected)
+  const getPlatforms = async () => {
+    if (!isSupabaseConfigured || !supabase || !user) {
+      return { platforms: [], error: new Error('Not authenticated') };
+    }
+    return fetchAllPlatforms(user.id);
+  };
 
-    return { profile: data, error };
+  // Fetch only actively connected platforms
+  const getConnectedPlatforms = async () => {
+    if (!isSupabaseConfigured || !supabase || !user) {
+      return { platforms: [], error: new Error('Not authenticated') };
+    }
+    return fetchConnectedPlatforms(user.id);
+  };
+
+  // Upsert a platform connection (connect / re-connect)
+  const connectPlatform = async (
+    platformType,
+    primaryId,
+    accessToken = null,
+    refreshToken = null,
+    userMetadata = {},
+    platformMetadata = {}
+  ) => {
+    if (!isSupabaseConfigured || !supabase || !user) {
+      return { error: new Error('Not authenticated') };
+    }
+    return insertOrUpdatePlatformConnection(
+      user.id,
+      platformType,
+      primaryId,
+      accessToken,
+      refreshToken,
+      userMetadata,
+      platformMetadata
+    );
+  };
+
+  // Mark a platform as disconnected (keeps the row for audit)
+  const disconnectPlatform = async (platformType) => {
+    if (!isSupabaseConfigured || !supabase || !user) {
+      return { error: new Error('Not authenticated') };
+    }
+    return removePlatformConnection(user.id, platformType);
+  };
+
+  // Soft-delete a platform (sets is_archived = true, row is never removed)
+  // Platform must be disconnected first.
+  const deletePlatform = async (platformType) => {
+    if (!isSupabaseConfigured || !supabase || !user) {
+      return { error: new Error('Not authenticated') };
+    }
+    return archivePlatform(user.id, platformType);
   };
 
   return (
@@ -169,6 +217,11 @@ export function AuthProvider({ children }) {
         uploadAvatar,
         updateProfile,
         getProfile,
+        getPlatforms,
+        getConnectedPlatforms,
+        connectPlatform,
+        disconnectPlatform,
+        deletePlatform,
       }}
     >
       {children}

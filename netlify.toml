@@ -1,7 +1,15 @@
 [build]
   command = "npm run build"
   publish = "dist"
+  functions = "netlify/functions"
 
+# ── API: rewrite /api/* → single Hono router function ────────
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/urls/:splat"
+  status = 200
+
+# ── SPA fallback ──────────────────────────────────────────────
 [[redirects]]
   from = "/*"
   to = "/index.html"
