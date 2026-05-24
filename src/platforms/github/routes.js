@@ -10,7 +10,7 @@ async function getUser(authHeader) {
   if (!token) return { user: null, error: 'Missing authorization header' };
 
   const supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
+    process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
   const {
