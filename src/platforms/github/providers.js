@@ -8,8 +8,11 @@ export async function fetchGitHubTokens(code) {
       Accept: 'application/json',
     },
     body: JSON.stringify({
-      client_id: process.env.VITE_GITHUB_CLIENT_ID,
-      client_secret: process.env.VITE_GITHUB_CLIENT_SECRET,
+      client_id:
+        process.env.GITHUB_CLIENT_ID || process.env.VITE_GITHUB_CLIENT_ID,
+      client_secret:
+        process.env.GITHUB_CLIENT_SECRET ||
+        process.env.VITE_GITHUB_CLIENT_SECRET,
       code,
     }),
   });
