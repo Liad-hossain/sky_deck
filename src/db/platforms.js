@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase.js';
 
 export async function fetchAllPlatforms(userId, client) {
   const sb = client ?? supabase;
