@@ -62,4 +62,5 @@ github.post('/disconnect', async (c) => {
   return c.json(error ? { error } : data, status);
 });
 
-export default github;
+export { github as default };
+export { github as githubRoutes };
