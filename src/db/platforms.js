@@ -1,7 +1,8 @@
 import { supabase } from '../lib/supabase';
 
-export async function fetchAllPlatforms(userId) {
-  const { data, error } = await supabase
+export async function fetchAllPlatforms(userId, client) {
+  const sb = client ?? supabase;
+  const { data, error } = await sb
     .from('platforms')
     .select('*')
     .eq('user_id', userId)
@@ -10,8 +11,9 @@ export async function fetchAllPlatforms(userId) {
   return { platforms: data ?? [], error: error ?? null };
 }
 
-export async function fetchConnectedPlatforms(userId) {
-  const { data, error } = await supabase
+export async function fetchConnectedPlatforms(userId, client) {
+  const sb = client ?? supabase;
+  const { data, error } = await sb
     .from('platforms')
     .select('*')
     .eq('user_id', userId)
@@ -83,8 +85,9 @@ export async function insertOrUpdatePlatformConnection(
   return { error: error ?? null };
 }
 
-export async function removePlatformConnection(userId, platformType) {
-  const { error } = await supabase
+export async function removePlatformConnection(userId, platformType, client) {
+  const sb = client ?? supabase;
+  const { error } = await sb
     .from('platforms')
     .update({
       is_connected: false,
@@ -98,8 +101,9 @@ export async function removePlatformConnection(userId, platformType) {
   return { error: error ?? null };
 }
 
-export async function archivePlatform(userId, platformType) {
-  const { error } = await supabase
+export async function archivePlatform(userId, platformType, client) {
+  const sb = client ?? supabase;
+  const { error } = await sb
     .from('platforms')
     .update({
       is_archived: true,
