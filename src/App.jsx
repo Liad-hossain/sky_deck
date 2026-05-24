@@ -9,6 +9,8 @@ import VerifyEmail from './pages/VerifyEmail';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Profile from './pages/Profile';
+import Integrations from './pages/Integrations';
+import GitHubCallback from './pages/GitHubCallback';
 
 function SetupRequiredScreen() {
   return (
@@ -113,6 +115,22 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/integrations"
+            element={
+              <ProtectedRoute>
+                <Integrations />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/integrations/github/callback"
+            element={
+              <ProtectedRoute>
+                <GitHubCallback />
               </ProtectedRoute>
             }
           />
