@@ -42,7 +42,7 @@ export async function insertOrUpdatePlatformConnection(
 
   // ── 2a. Row found → UPDATE ─────────────────────────────────────────────────
   if (existing) {
-    const { error } = await sb
+    const { error } = await client
       .from('platforms')
       .update({
         access_token: accessToken,
@@ -60,7 +60,7 @@ export async function insertOrUpdatePlatformConnection(
   }
 
   // ── 2b. No row found → INSERT ──────────────────────────────────────────────
-  const { error } = await sb.from('platforms').insert({
+  const { error } = await client.from('platforms').insert({
     user_id: userId,
     platform_type: platformType,
     title: `${primaryId}_${userId}_${platformType}`,

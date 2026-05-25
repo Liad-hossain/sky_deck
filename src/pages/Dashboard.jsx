@@ -478,7 +478,7 @@ export default function Dashboard() {
                           </div>
                         </div>
                       </div>
-                      {platform.connected_at && (
+                      {platform.is_connected && platform.connected_at && (
                         <p className="text-xs text-gray-500">
                           Connected{' '}
                           {new Date(platform.connected_at).toLocaleDateString(
