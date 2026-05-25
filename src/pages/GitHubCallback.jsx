@@ -56,24 +56,19 @@ export default function GitHubCallback() {
           return;
         }
 
-        // Single call: exchange code + store installation in one step
-        const { githubUser: ghUser, error } = await exchangeGitHubCode(
-          code,
-          installationId,
-          session.access_token
+        // Start the exchange in background (sendBeacon / fire-and-forget).
+        // We don't await it so the browser and GitHub callback flow can finish
+        // immediately and avoid GitHub retrying the callback.
+        exchangeGitHubCode(code, installationId, session.access_token).catch(
+          () => {}
         );
 
-        if (error) {
-          setStatus('error');
-          setMessage(error);
-          return;
-        }
-
-        setGithubUser(ghUser);
+        // Show success immediately — the background worker will complete the
+        // server-side work. We don't rely on githubUser payload here.
         setStatus('success');
-        toast.success(`GitHub connected as @${ghUser.login}`);
+        toast.success('GitHub connection in progress.');
 
-        setTimeout(() => navigate('/dashboard'), 2000);
+        setTimeout(() => navigate('/dashboard'), 1500);
       } catch (e) {
         setStatus('error');
         setMessage(e.message ?? 'Something went wrong.');

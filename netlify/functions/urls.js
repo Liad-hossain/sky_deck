@@ -1,6 +1,5 @@
 import { Hono } from 'hono';
 
-
 try {
   const ws = require('ws');
   if (ws) globalThis.WebSocket = ws;
@@ -11,15 +10,18 @@ try {
 }
 
 export const handler = async (event) => {
-  const { githubRoutes } = await import('../../src/platforms/github/routes.js');
+  const { githubRoutes } =
+    await import('../../src/api/platforms/github/routes.js');
+  const { default: apiRoutes } =
+    await import('../../src/api/account/routes.js');
 
   const app = new Hono().basePath('/api');
 
   app.get('/health', (c) =>
     c.json({ status: 'ok', ts: new Date().toISOString() })
   );
-
   app.route('/platforms/github', githubRoutes);
+  app.route('/', apiRoutes); // mount API routes at /api/*
 
   app.notFound((c) => c.json({ error: 'Not found' }, 404));
 

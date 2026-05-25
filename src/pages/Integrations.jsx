@@ -248,7 +248,9 @@ export default function Integrations() {
     setLoading(true);
     const { platforms } = await getPlatforms();
     const map = {};
-    platforms.forEach((p) => (map[p.platform_type] = p));
+    platforms.forEach((p) => {
+      if (p.is_connected) map[p.platform_type] = p;
+    });
     setConnected(map);
     setLoading(false);
   };
@@ -423,18 +425,10 @@ export default function Integrations() {
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.97 }}
                             disabled={busy}
-                            onClick={() =>
-                              isConnected
-                                ? setModal({ mode: 'disconnect', platform })
-                                : handleConnect(platform)
-                            }
-                            className={`flex-1 rounded-xl px-4 py-2 text-sm font-medium transition disabled:opacity-50 ${
-                              isConnected
-                                ? 'border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20'
-                                : 'border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20'
-                            }`}
+                            onClick={() => handleConnect(platform)}
+                            className={`flex-1 rounded-xl px-4 py-2 text-sm font-medium transition disabled:opacity-50 ${'border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20'}`}
                           >
-                            {isConnected ? 'Disconnect' : 'Connect'}
+                            Connect
                           </motion.button>
 
                           {/* Delete button — only shown when row exists in DB */}
