@@ -10,18 +10,28 @@ try {
 }
 
 export const handler = async (event) => {
-  const { githubRoutes } =
-    await import('../../src/api/platforms/github/routes.js');
-  const { default: apiRoutes } =
-    await import('../../src/api/account/routes.js');
+  const githubModule = await import('../../src/api/platforms/github/routes.js');
+  const accountModule = await import('../../src/api/account/routes.js');
+
+  const githubRoutes = githubModule.githubRoutes ?? githubModule.default ?? githubModule.github ?? null;
+  const apiRoutes = accountModule.default ?? accountModule.api ?? null;
 
   const app = new Hono().basePath('/api');
 
   app.get('/health', (c) =>
     c.json({ status: 'ok', ts: new Date().toISOString() })
   );
-  app.route('/platforms/github', githubRoutes);
-  app.route('/', apiRoutes); // mount API routes at /api/*
+  if (githubRoutes) {
+    app.route('/platforms/github', githubRoutes);
+  } else {
+    console.warn('GitHub routes not found - skipping mount');
+  }
+
+  if (apiRoutes) {
+    app.route('/', apiRoutes); // mount API routes at /api/*
+  } else {
+    console.warn('Account API routes not found - skipping mount');
+  }
 
   app.notFound((c) => c.json({ error: 'Not found' }, 404));
 
@@ -45,7 +55,6 @@ export const handler = async (event) => {
   const request = new Request(url, {
     method: httpMethod,
     headers,
-    // GET/HEAD must not have a body.
     body: ['GET', 'HEAD'].includes(httpMethod) ? undefined : bodyInit,
   });
 
