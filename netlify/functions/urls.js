@@ -10,28 +10,18 @@ try {
 }
 
 export const handler = async (event) => {
-  const githubModule = await import('../../src/api/platforms/github/routes.js');
-  const accountModule = await import('../../src/api/account/routes.js');
-
-  const githubRoutes = githubModule.githubRoutes ?? githubModule.default ?? githubModule.github ?? null;
-  const apiRoutes = accountModule.default ?? accountModule.api ?? null;
+  const { githubRoutes } =
+    await import('../../src/api/platforms/github/routes.js');
+  const { accountRoutes } =
+    await import('../../src/api/account/routes.js');
 
   const app = new Hono().basePath('/api');
 
   app.get('/health', (c) =>
     c.json({ status: 'ok', ts: new Date().toISOString() })
   );
-  if (githubRoutes) {
-    app.route('/platforms/github', githubRoutes);
-  } else {
-    console.warn('GitHub routes not found - skipping mount');
-  }
-
-  if (apiRoutes) {
-    app.route('/', apiRoutes); // mount API routes at /api/*
-  } else {
-    console.warn('Account API routes not found - skipping mount');
-  }
+  app.route('/platforms/github', githubRoutes);
+  app.route('/', accountRoutes); // mount API routes at /api/*
 
   app.notFound((c) => c.json({ error: 'Not found' }, 404));
 
