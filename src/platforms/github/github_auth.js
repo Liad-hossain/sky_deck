@@ -1,16 +1,12 @@
 import { generateGitHubAppJWT } from './utils.js';
 
 export async function fetchGitHubTokens(code) {
-  const params = new URLSearchParams({
-    client_id:
-      process.env.GITHUB_CLIENT_ID || process.env.VITE_GITHUB_CLIENT_ID,
-    client_secret:
-      process.env.GITHUB_CLIENT_SECRET || process.env.VITE_GITHUB_CLIENT_SECRET,
-    redirect_uri: `${process.env.VITE_APP_URL}/integrations/github/callback`,
-    code,
-  });
+  const clientId = process.env.VITE_GITHUB_CLIENT_ID || '';
+  const clientSecret = process.env.VITE_GITHUB_CLIENT_SECRET || '';
+  const redirectUri = `${process.env.VITE_APP_URL}integrations/github/callback`;
 
-  const url = `https://github.com/login/oauth/access_token?${params.toString()}`;
+  const url = `https://github.com/login/oauth/access_token?client_id=${clientId}&client_secret=${clientSecret}&redirect_uri=${redirectUri}&code=${code}`;
+  console.log(`URL for token exchange: ${url}`);
 
   const res = await fetch(url, {
     method: 'GET',
@@ -19,12 +15,27 @@ export async function fetchGitHubTokens(code) {
     },
   });
 
-  const tokenData = await res.json();
+  const tokenData = await res.json().catch((err) => {
+    console.error('Failed to parse token response JSON:', err);
+    return null;
+  });
 
-  if (tokenData.error || !tokenData.access_token) {
+  if (!res.ok || (tokenData && tokenData.error)) {
+    console.error('GitHub token exchange failed', {
+      status: res.status,
+      statusText: res.statusText,
+      body: tokenData,
+    });
+  }
+
+  if (!tokenData || tokenData.error || !tokenData.access_token) {
     return {
       data: null,
-      error: tokenData.error_description ?? 'Token exchange failed',
+      error:
+        tokenData?.error_description ||
+        tokenData?.error ||
+        'Token exchange failed',
+      status: res.status,
     };
   }
 
@@ -35,6 +46,34 @@ export async function fetchGitHubTokens(code) {
     },
     error: null,
   };
+}
+
+export async function fetchInstallationAccessToken(installationId) {
+  const appJWT = generateGitHubAppJWT();
+
+  const res = await fetch(
+    `https://api.github.com/app/installations/${installationId}/access_tokens`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${appJWT}`,
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'sky-deck',
+      },
+    }
+  );
+
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data) {
+    return {
+      data: null,
+      error:
+        data?.message ?? `Failed to create installation token (${res.status})`,
+      status: res.status,
+    };
+  }
+
+  return { data: { accessToken: data.token }, error: null, status: res.status };
 }
 
 export async function fetchGitHubEmails(accessToken) {
