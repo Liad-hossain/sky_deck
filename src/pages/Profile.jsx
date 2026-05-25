@@ -15,7 +15,7 @@ import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 
 export default function Profile() {
-  const { user, getProfile, updateProfile, uploadAvatar } = useAuth();
+  const { user, getProfile, updateProfile, uploadAvatar, loading } = useAuth();
 
   const [profile, setProfile] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -28,6 +28,8 @@ export default function Profile() {
 
   // Load profile on mount
   useEffect(() => {
+    // Wait for auth to finish initializing so we have a session token
+    if (loading) return;
     (async () => {
       const { profile: p, error } = await getProfile();
       if (error) toast.error('Could not load profile');
@@ -38,7 +40,7 @@ export default function Profile() {
       }
       setLoadingProfile(false);
     })();
-  }, []);
+  }, [loading]);
 
   // ── Full name save ─────────────────────────────────────────
   const handleSaveName = async () => {

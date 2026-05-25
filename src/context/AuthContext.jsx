@@ -5,15 +5,7 @@ import {
   supabaseConfigError,
 } from '../lib/supabase';
 import { uploadToCloudinary } from '../lib/cloudinary';
-import {
-  fetchProfile,
-  updateProfileFields,
-  fetchAllPlatforms,
-  fetchConnectedPlatforms,
-  insertOrUpdatePlatformConnection,
-  removePlatformConnection,
-  archivePlatform,
-} from '../db';
+import { redirectToGitHubInstall } from '../integrations/github/index.js';
 
 const AuthContext = createContext({});
 
@@ -29,8 +21,6 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    // Safety timeout — if getSession never resolves (network issue etc.)
-    // we still stop showing the spinner after 8 seconds.
     const timeout = setTimeout(() => setLoading(false), 8000);
 
     supabase.auth
@@ -41,7 +31,6 @@ export function AuthProvider({ children }) {
         clearTimeout(timeout);
       })
       .catch(() => {
-        // Network / Supabase error — clear loading so the app renders
         setLoading(false);
         clearTimeout(timeout);
       });
@@ -117,7 +106,6 @@ export function AuthProvider({ children }) {
     return { data, error };
   };
 
-  // Upload avatar to Cloudinary and update profile row
   const uploadAvatar = async (file) => {
     if (!user) {
       return { url: null, error: new Error('Not authenticated') };
@@ -132,76 +120,191 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Update full_name and/or avatar_url in public.profiles
   const updateProfile = async ({ full_name, avatar_url }) => {
-    if (!isSupabaseConfigured || !supabase || !user) {
+    if (!isSupabaseConfigured || !supabase) {
       return { error: new Error('Not authenticated') };
     }
-    return updateProfileFields(user.id, { full_name, avatar_url });
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return { error: new Error('Not authenticated') };
+    const res = await fetch('/api/profile', {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ full_name, avatar_url }),
+    });
+    const data = await res.json();
+    return { error: data.error ? new Error(data.error) : null };
   };
 
-  // Fetch the profile row for the current user
   const getProfile = async () => {
-    if (!isSupabaseConfigured || !supabase || !user) {
+    if (!isSupabaseConfigured || !supabase) {
       return { profile: null, error: new Error('Not authenticated') };
     }
-    return fetchProfile(user.id);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session)
+      return { profile: null, error: new Error('Not authenticated') };
+    const res = await fetch('/api/profile', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const data = await res.json();
+    return {
+      profile: data.profile ?? null,
+      error: data.error ? new Error(data.error) : null,
+    };
   };
 
-  // Fetch all non-archived platform rows (connected + disconnected)
   const getPlatforms = async () => {
-    if (!isSupabaseConfigured || !supabase || !user) {
+    if (!isSupabaseConfigured || !supabase) {
       return { platforms: [], error: new Error('Not authenticated') };
     }
-    return fetchAllPlatforms(user.id);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session)
+      return { platforms: [], error: new Error('Not authenticated') };
+    const res = await fetch('/api/platforms', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const data = await res.json();
+    return {
+      platforms: data.platforms ?? [],
+      error: data.error ? new Error(data.error) : null,
+    };
   };
 
-  // Fetch only actively connected platforms
   const getConnectedPlatforms = async () => {
-    if (!isSupabaseConfigured || !supabase || !user) {
+    if (!isSupabaseConfigured || !supabase) {
       return { platforms: [], error: new Error('Not authenticated') };
     }
-    return fetchConnectedPlatforms(user.id);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session)
+      return { platforms: [], error: new Error('Not authenticated') };
+    const res = await fetch(`/api/platforms?is_connected=true`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const data = await res.json();
+    return {
+      platforms: data.platforms ?? [],
+      error: data.error ? new Error(data.error) : null,
+    };
   };
 
-  // Upsert a platform connection (connect / re-connect)
-  const connectPlatform = async (
-    platformType,
-    primaryId,
-    accessToken = null,
-    refreshToken = null,
-    userMetadata = {},
-    platformMetadata = {}
-  ) => {
-    if (!isSupabaseConfigured || !supabase || !user) {
-      return { error: new Error('Not authenticated') };
+  const connectPlatform = async (platformType) => {
+    if (platformType === 'github') {
+      redirectToGitHubInstall();
+      return { error: null };
     }
-    return insertOrUpdatePlatformConnection(
-      user.id,
-      platformType,
-      primaryId,
-      accessToken,
-      refreshToken,
-      userMetadata,
-      platformMetadata
-    );
+
+    return {
+      error: new Error(
+        'connectPlatform must be performed via server-side install flow'
+      ),
+    };
   };
 
-  // Mark a platform as disconnected (keeps the row for audit)
   const disconnectPlatform = async (platformType) => {
     if (!isSupabaseConfigured || !supabase || !user) {
       return { error: new Error('Not authenticated') };
     }
-    return removePlatformConnection(user.id, platformType);
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const listRes = await fetch('/api/platforms', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const listData = await listRes.json().catch(() => ({}));
+    const row = (listData.platforms ?? []).find(
+      (p) =>
+        p.platform_type === platformType && p.is_connected && !p.is_archived
+    );
+    if (!row) return { error: new Error('No connected platform found') };
+
+    const res = await fetch(`/api/platforms/disconnect/${row.id}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const data = await res.json();
+    return { error: data.error ? new Error(data.error) : null };
   };
 
-  // Soft-delete a platform (sets is_archived = true, row is never removed)
-  // Platform must be disconnected first.
+  const updatePlatformTitle = async (id, title) => {
+    if (!isSupabaseConfigured || !supabase)
+      return { error: new Error('Not authenticated') };
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return { error: new Error('Not authenticated') };
+    const res = await fetch('/api/platforms', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ platformId: id, title }),
+    });
+    const data = await res.json();
+    return { error: data.error ? new Error(data.error) : null };
+  };
+
+  const disconnectPlatformByIdClient = async (id) => {
+    if (!isSupabaseConfigured || !supabase)
+      return { error: new Error('Not authenticated') };
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return { error: new Error('Not authenticated') };
+    const res = await fetch(`/api/platforms/disconnect/${id}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const data = await res.json();
+    return { error: data.error ? new Error(data.error) : null };
+  };
+
+  const deletePlatformByIdClient = async (id) => {
+    if (!isSupabaseConfigured || !supabase)
+      return { error: new Error('Not authenticated') };
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return { error: new Error('Not authenticated') };
+    const res = await fetch(`/api/platforms/delete/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const data = await res.json();
+    return { error: data.error ? new Error(data.error) : null };
+  };
+
   const deletePlatform = async (platformType) => {
     if (!isSupabaseConfigured || !supabase || !user) {
       return { error: new Error('Not authenticated') };
     }
-    return archivePlatform(user.id, platformType);
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const res = await fetch('/api/platforms', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const data = await res.json();
+    const row = (data.platforms ?? []).find(
+      (p) => p.platform_type === platformType && !p.is_archived
+    );
+    if (!row) return { error: new Error('Platform not found') };
+    if (row.is_connected)
+      return { error: new Error('Please disconnect before deleting.') };
+    return deletePlatformByIdClient(row.id);
   };
 
   return (
@@ -221,6 +324,9 @@ export function AuthProvider({ children }) {
         getConnectedPlatforms,
         connectPlatform,
         disconnectPlatform,
+        updatePlatformTitle,
+        disconnectPlatformById: disconnectPlatformByIdClient,
+        deletePlatformById: deletePlatformByIdClient,
         deletePlatform,
       }}
     >

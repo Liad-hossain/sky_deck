@@ -12,6 +12,24 @@
   </head>
   <body class="antialiased">
     <div id="root"></div>
+    <!-- Visible client loading status for quick debugging -->
+    <div
+      id="client-status"
+      style="
+        position: fixed;
+        left: 12px;
+        bottom: 12px;
+        z-index: 99998;
+        background: rgba(0, 0, 0, 0.6);
+        color: #fff;
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-family: Inter, monospace;
+        font-size: 12px;
+      "
+    >
+      Loading client…
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

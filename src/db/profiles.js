@@ -1,11 +1,25 @@
-import { supabase } from '../lib/supabase.js';
+import { supabase, supabaseAdmin } from '../lib/supabase.js';
 
-export async function fetchProfile(userId) {
-  const { data, error } = await supabase
+const client = supabaseAdmin ?? supabase;
+
+export async function getUserFromAuthHeader(authHeader) {
+  const token = authHeader?.replace('Bearer ', '');
+  if (!token) return { user: null, error: 'Missing authorization header' };
+
+  const {
+    data: { user },
+    error,
+  } = await client.auth.getUser(token);
+  return { user: user ?? null, error: error?.message ?? null };
+}
+
+export async function fetchUserProfile(userId) {
+  const { data, error } = await client
     .from('profiles')
     .select('*')
     .eq('id', userId)
-    .single();
+    .maybeSingle();
+
   return { profile: data ?? null, error: error ?? null };
 }
 
@@ -14,9 +28,10 @@ export async function updateProfileFields(userId, fields) {
   if (fields.full_name !== undefined) updates.full_name = fields.full_name;
   if (fields.avatar_url !== undefined) updates.avatar_url = fields.avatar_url;
 
-  const { error } = await supabase
+  const { error } = await client
     .from('profiles')
     .update(updates)
     .eq('id', userId);
-  return { error: error ?? null };
+
+  return { profile: data ?? null, error: error ?? null };
 }

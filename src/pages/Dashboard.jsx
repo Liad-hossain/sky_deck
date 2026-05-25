@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -25,7 +25,9 @@ import {
   SiDiscord,
 } from 'react-icons/si';
 import Navbar from '../components/Navbar';
+import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 
 const container = {
   hidden: { opacity: 0 },
@@ -100,16 +102,97 @@ const PLATFORM_META = {
 };
 
 export default function Dashboard() {
-  const { user, getProfile, getConnectedPlatforms } = useAuth();
+  const {
+    user,
+    updatePlatformTitle,
+    disconnectPlatformById,
+    deletePlatformById,
+    connectPlatform,
+  } = useAuth();
   const [profile, setProfile] = useState(null);
   const [connectedPlatforms, setConnectedPlatforms] = useState([]);
+  const [menuOpenFor, setMenuOpenFor] = useState(null); // platform id
+  const menuRefMap = useRef({});
+  const [editModal, setEditModal] = useState(null); // { id, title }
+  const [confirmModal, setConfirmModal] = useState(null); // { mode: 'disconnect'|'delete', id }
+  const [busy, setBusy] = useState(false);
+  // ...useAuth functions are already destructured above
+
+  function ConfirmInput({ onConfirm, onCancel, busy }) {
+    const [input, setInput] = useState('');
+    return (
+      <div>
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value.toUpperCase())}
+          className="mb-4 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white"
+        />
+        <div className="flex gap-2">
+          <button
+            onClick={onCancel}
+            className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-400"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onConfirm(input)}
+            disabled={busy}
+            className="flex-1 rounded-xl bg-amber-500/20 px-4 py-2 text-sm text-amber-400"
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
-    getProfile().then(({ profile: p }) => p && setProfile(p));
-    getConnectedPlatforms().then(({ platforms }) =>
-      setConnectedPlatforms(platforms)
-    );
+    // Fetch profile and platforms from server APIs
+    (async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        const [profRes, platRes] = await Promise.all([
+          fetch('/api/profile', {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          }),
+          fetch('/api/platforms', {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          }),
+        ]);
+
+        const profData = await profRes.json().catch(() => ({}));
+        const platData = await platRes.json().catch(() => ({}));
+
+        setProfile(profData.profile ?? null);
+        setConnectedPlatforms(platData.platforms ?? []);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('Error loading Dashboard data:', err);
+      }
+    })();
   }, []);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    function onDocClick(ev) {
+      if (!menuOpenFor) return;
+      const el = menuRefMap.current[menuOpenFor];
+      if (!el) return;
+      if (!el.contains(ev.target)) setMenuOpenFor(null);
+    }
+    function onKey(ev) {
+      if (ev.key === 'Escape') setMenuOpenFor(null);
+    }
+    document.addEventListener('click', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('click', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpenFor]);
 
   const createdAt = user?.created_at
     ? new Date(user.created_at).toLocaleDateString('en-US', {
@@ -207,7 +290,7 @@ export default function Dashboard() {
             {[
               {
                 label: 'Connected Platforms',
-                value: connectedPlatforms.length,
+                value: connectedPlatforms.filter((p) => p.is_connected).length,
                 icon: HiOutlineGlobe,
                 color: 'from-indigo-500 to-blue-500',
               },
@@ -287,25 +370,112 @@ export default function Dashboard() {
                     border: 'border-gray-500/40',
                   };
                   const Icon = meta.icon;
+                  const displayTitle =
+                    platform.title && platform.title.length > 20
+                      ? `${platform.title.slice(0, 20)}…`
+                      : platform.title;
+
                   return (
                     <motion.div
                       key={platform.id}
                       whileHover={{ y: -4, scale: 1.02 }}
-                      className={`glass rounded-2xl border p-6 ${meta.border}`}
+                      className={`glass rounded-2xl border p-6 ${meta.border} relative`}
                     >
-                      <div className="mb-3 flex items-center gap-3">
-                        <div
-                          className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${meta.bg} shadow-lg`}
-                        >
-                          <Icon className={`text-xl ${meta.iconColor}`} />
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <div
+                            className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${meta.bg} flex-shrink-0 shadow-lg`}
+                          >
+                            <Icon className={`text-xl ${meta.iconColor}`} />
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="truncate font-semibold text-white">
+                              {displayTitle}
+                            </h4>
+                            <div className="truncate text-xs text-gray-400">
+                              {platform.primary_id}
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <h4 className="font-semibold text-white">
-                            {platform.title}
-                          </h4>
-                          <span className="text-xs text-emerald-400">
-                            ● Active
-                          </span>
+                        <div className="flex flex-col items-end">
+                          <div
+                            className={`mb-1 rounded-full px-2 py-0.5 text-xs font-medium ${platform.is_connected ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'}`}
+                          >
+                            {platform.is_connected
+                              ? 'Connected'
+                              : 'Disconnected'}
+                          </div>
+                          <div
+                            ref={(el) => (menuRefMap.current[platform.id] = el)}
+                          >
+                            <button
+                              onClick={() =>
+                                setMenuOpenFor(
+                                  menuOpenFor === platform.id
+                                    ? null
+                                    : platform.id
+                                )
+                              }
+                              className="rounded-full p-1 text-gray-400 hover:text-white"
+                              aria-label="Open menu"
+                            >
+                              ⋯
+                            </button>
+                            {menuOpenFor === platform.id && (
+                              <div className="absolute right-0 mt-2 w-36 rounded-md bg-black/80 p-1 text-sm shadow-lg">
+                                <button
+                                  onClick={() =>
+                                    setEditModal({
+                                      id: platform.id,
+                                      title: platform.title,
+                                    })
+                                  }
+                                  className="block w-full px-2 py-1 text-left text-sm text-gray-200 hover:bg-white/5"
+                                >
+                                  Edit
+                                </button>
+                                {platform.is_connected ? (
+                                  <>
+                                    <button
+                                      onClick={() =>
+                                        setConfirmModal({
+                                          mode: 'disconnect',
+                                          id: platform.id,
+                                        })
+                                      }
+                                      className="block w-full px-2 py-1 text-left text-sm text-gray-200 hover:bg-white/5"
+                                    >
+                                      Disconnect
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        setConfirmModal({
+                                          mode: 'delete',
+                                          id: platform.id,
+                                        })
+                                      }
+                                      className="block w-full px-2 py-1 text-left text-sm text-red-400 hover:bg-white/5"
+                                    >
+                                      Delete
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button
+                                    onClick={async () => {
+                                      // start connect flow for this platform type
+                                      await connectPlatform(
+                                        platform.platform_type
+                                      );
+                                      setMenuOpenFor(null);
+                                    }}
+                                    className="block w-full px-2 py-1 text-left text-sm text-emerald-300 hover:bg-white/5"
+                                  >
+                                    Connect
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                       {platform.connected_at && (
@@ -317,12 +487,142 @@ export default function Dashboard() {
                           )}
                         </p>
                       )}
+                      {!platform.is_connected && platform.disconnected_at && (
+                        <p className="text-xs text-gray-500">
+                          Disconnected{' '}
+                          {new Date(
+                            platform.disconnected_at
+                          ).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </p>
+                      )}
                     </motion.div>
                   );
                 })}
               </div>
             )}
           </motion.section>
+
+          {/* Edit modal */}
+          {editModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+              <div className="glass w-full max-w-md rounded-2xl p-6">
+                <h3 className="mb-2 text-lg font-semibold text-white">
+                  Edit platform title
+                </h3>
+                <input
+                  value={editModal.title}
+                  onChange={(e) =>
+                    setEditModal({ ...editModal, title: e.target.value })
+                  }
+                  className="mb-4 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditModal(null)}
+                    className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-400"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!editModal.title || !editModal.title.trim()) return;
+                      setBusy(true);
+                      const { error } = await updatePlatformTitle(
+                        editModal.id,
+                        editModal.title.trim()
+                      );
+                      setBusy(false);
+                      if (error) {
+                        toast.error(
+                          error.message || 'Failed to update platform'
+                        );
+                        return;
+                      }
+                      // update local state optimistically
+                      setConnectedPlatforms((items) =>
+                        items.map((p) =>
+                          p.id === editModal.id
+                            ? { ...p, title: editModal.title.trim() }
+                            : p
+                        )
+                      );
+                      toast.success('Platform updated');
+                      setEditModal(null);
+                    }}
+                    disabled={
+                      !editModal.title || !editModal.title.trim() || busy
+                    }
+                    className="flex-1 rounded-xl bg-indigo-500/20 px-4 py-2 text-sm text-indigo-300 disabled:opacity-50"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Confirm modal for disconnect/delete */}
+          {confirmModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+              <div className="glass w-full max-w-md rounded-2xl p-6">
+                <h3 className="mb-2 text-lg font-semibold text-white">
+                  {confirmModal.mode === 'delete' ? 'Delete' : 'Disconnect'}{' '}
+                  platform?
+                </h3>
+                <p className="mb-4 text-sm text-gray-400">
+                  Type{' '}
+                  <span className="font-mono font-bold text-white">
+                    {confirmModal.mode === 'delete' ? 'DELETE' : 'DISCONNECT'}
+                  </span>{' '}
+                  to confirm
+                </p>
+                <ConfirmInput
+                  onConfirm={async (val) => {
+                    if (
+                      val !==
+                      (confirmModal.mode === 'delete' ? 'DELETE' : 'DISCONNECT')
+                    )
+                      return;
+                    setBusy(true);
+                    try {
+                      if (confirmModal.mode === 'disconnect') {
+                        const { error } = await disconnectPlatformById(
+                          confirmModal.id
+                        );
+                        if (error) throw error;
+                        toast.success('Platform disconnected');
+                      } else {
+                        const { error } = await deletePlatformById(
+                          confirmModal.id
+                        );
+                        if (error) throw error;
+                        toast.success('Platform deleted');
+                      }
+                      // refresh local list
+                      setConnectedPlatforms(
+                        await getConnectedPlatforms().then((r) => r.platforms)
+                      );
+                    } catch (err) {
+                      toast.error(err.message || 'Operation failed');
+                      setBusy(false);
+                      return;
+                    }
+                    setBusy(false);
+                    setConfirmModal(null);
+                    setConnectedPlatforms(
+                      await getConnectedPlatforms().then((r) => r.platforms)
+                    );
+                  }}
+                  busy={busy}
+                  onCancel={() => setConfirmModal(null)}
+                />
+              </div>
+            </div>
+          )}
 
           {/* AI Summary Teaser */}
           <motion.section

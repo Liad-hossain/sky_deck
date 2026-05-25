@@ -15,25 +15,36 @@ export async function exchangeGitHubCode(
   installationId,
   supabaseAccessToken
 ) {
-  const res = await fetch(GITHUB_INSTALL_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${supabaseAccessToken}`,
-    },
-    body: JSON.stringify({ code, installation_id: installationId }),
-  });
+  const payload = JSON.stringify({ code, installation_id: installationId });
 
-  const data = await res.json();
-
-  if (!res.ok) {
-    return {
-      githubUser: null,
-      error: data.error ?? 'Failed to connect GitHub.',
-    };
+  try {
+    fetch(GITHUB_INSTALL_URL, {
+      method: 'POST',
+      keepalive: true,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${supabaseAccessToken}`,
+      },
+      body: payload,
+    }).catch(() => {});
+  } catch (e) {
+    (async () => {
+      try {
+        await fetch(GITHUB_INSTALL_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${supabaseAccessToken}`,
+          },
+          body: payload,
+        });
+      } catch (_err) {
+        // swallow
+      }
+    })();
   }
 
-  return { githubUser: data.github_user, error: null };
+  return { githubUser: null, error: null };
 }
 
 // ── Disconnect ────────────────────────────────────────────────────────────────

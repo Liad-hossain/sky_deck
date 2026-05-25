@@ -1,23 +1,18 @@
-import { supabase } from '../lib/supabase.js';
+import { supabase, supabaseAdmin } from '../lib/supabase.js';
 
-export async function fetchAllPlatforms(userId, client) {
-  const sb = client ?? supabase;
-  const { data, error } = await sb
-    .from('platforms')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('is_archived', false)
-    .order('created_at', { ascending: true });
-  return { platforms: data ?? [], error: error ?? null };
-}
+const client = supabaseAdmin ?? supabase;
 
-export async function fetchConnectedPlatforms(userId, client) {
-  const sb = client ?? supabase;
-  const { data, error } = await sb
+export async function fetchUserPlatforms(userId, isConnected = null) {
+  let query = client
     .from('platforms')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('is_connected', true)
+    .select(
+      'id, primary_id, platform_type, title, user_metadata, platform_metadata, is_connected, connected_at, is_archived'
+    )
+    .eq('user_id', userId);
+  if (isConnected !== null && typeof isConnected === 'boolean') {
+    query = query.eq('is_connected', isConnected);
+  }
+  const { data, error } = await query
     .eq('is_archived', false)
     .order('connected_at', { ascending: false });
   return { platforms: data ?? [], error: error ?? null };
@@ -30,14 +25,12 @@ export async function insertOrUpdatePlatformConnection(
   accessToken = null,
   refreshToken = null,
   userMetadata = {},
-  platformMetadata = {},
-  client
+  platformMetadata = {}
 ) {
-  const sb = client ?? supabase;
   const now = new Date().toISOString();
 
   // ── 1. Look up existing row by user_id + primary_id ──────────────────────
-  const { data: existing, error: fetchErr } = await sb
+  const { data: existing, error: fetchErr } = await client
     .from('platforms')
     .select('id')
     .eq('user_id', userId)
@@ -85,9 +78,30 @@ export async function insertOrUpdatePlatformConnection(
   return { error: error ?? null };
 }
 
-export async function removePlatformConnection(userId, platformType, client) {
-  const sb = client ?? supabase;
-  const { error } = await sb
+export async function fetchPlatformById(userId, platformId) {
+  const { data, error } = await client
+    .from('platforms')
+    .select(
+      'id, primary_id, platform_type, title, user_metadata, platform_metadata, is_connected, connected_at, is_archived'
+    )
+    .eq('id', platformId)
+    .eq('user_id', userId)
+    .eq('is_archived', false)
+    .maybeSingle();
+  return { platform: data ?? null, error: error ?? null };
+}
+
+export async function updatePlatformById(userId, id, update_dict) {
+  const { error } = await client
+    .from('platforms')
+    .update({ ...update_dict, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('user_id', userId);
+  return { error: error ?? null };
+}
+
+export async function disconnectPlatformById(userId, platformId) {
+  const { error } = await client
     .from('platforms')
     .update({
       is_connected: false,
@@ -96,21 +110,21 @@ export async function removePlatformConnection(userId, platformType, client) {
       refresh_token: null,
       updated_at: new Date().toISOString(),
     })
-    .eq('user_id', userId)
-    .eq('platform_type', platformType);
+    .eq('id', platformId)
+    .eq('user_id', userId);
   return { error: error ?? null };
 }
 
-export async function archivePlatform(userId, platformType, client) {
-  const sb = client ?? supabase;
-  const { error } = await sb
+export async function archivePlatformById(userId, platformId) {
+  const { error } = await client
     .from('platforms')
     .update({
       is_archived: true,
       updated_at: new Date().toISOString(),
+      archived_at: new Date().toISOString(),
     })
+    .eq('id', platformId)
     .eq('user_id', userId)
-    .eq('platform_type', platformType)
-    .eq('is_connected', false); // safety: only archive if already disconnected
+    .eq('is_connected', false);
   return { error: error ?? null };
 }
