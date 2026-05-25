@@ -68,4 +68,5 @@ api.delete(
   })
 );
 
-export default api;
+export { api as default };
+export { api as accountRoutes };
