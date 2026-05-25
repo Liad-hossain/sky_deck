@@ -4,7 +4,7 @@ import {
   fetchGitHubTokens,
   fetchGitHubEmails,
   fetchGitHubInstallationDetails,
-} from './providers.js';
+} from './github_auth.js';
 
 export async function handleInstallation(
   supabase,
@@ -16,14 +16,26 @@ export async function handleInstallation(
     return { data: null, error: 'Missing installation_id', status: 400 };
   }
 
+  console.log(
+    `handleInstallation — code: ${code}, installation_id: ${installation_id}`
+  );
+
   const { data: tokens, error: tokenErr } = await fetchGitHubTokens(code);
   if (tokenErr) return { data: null, error: tokenErr, status: 400 };
   const { accessToken, refreshToken } = tokens;
 
-  const { data: emailData, error: emailErr } =
+  console.log(
+    `Tokens fetched successfully. Access Token: ${accessToken}, Refresh Token: ${refreshToken}`
+  );
+
+  const { data: emails, error: emailErr } =
     await fetchGitHubEmails(accessToken);
   if (emailErr) return { data: null, error: emailErr, status: 502 };
-  const { primaryEmail } = emailData;
+  const primaryEmail = Array.isArray(emails)
+    ? (emails.find((e) => e.primary && e.verified) ?? emails[0])
+    : null;
+
+  console.log(`Email data: ${JSON.stringify(emails)}`);
 
   const {
     data: installation,
@@ -31,6 +43,10 @@ export async function handleInstallation(
     status: instStatus,
   } = await fetchGitHubInstallationDetails(installation_id);
   if (instErr) return { data: null, error: instErr, status: instStatus };
+
+  console.log(
+    `Installation details fetched successfully: ${JSON.stringify(installation)}`
+  );
 
   const userMetadata = {
     primary_email: primaryEmail,

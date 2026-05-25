@@ -50,12 +50,8 @@ export async function fetchGitHubEmails(accessToken) {
 
   const emails = await res.json();
 
-  const primaryEmailObj = Array.isArray(emails)
-    ? (emails.find((e) => e.primary && e.verified) ?? emails[0])
-    : null;
-
   return {
-    data: { primaryEmail: primaryEmailObj?.email ?? null },
+    data: emails,
     error: null,
   };
 }
