@@ -1,4 +1,28 @@
-import { createSign } from 'crypto';
+import { createSign, createPrivateKey } from 'crypto';
+
+function normalizePem(raw) {
+  if (!raw) return '';
+  let s = raw.trim();
+  if (
+    (s.startsWith("'") && s.endsWith("'")) ||
+    (s.startsWith('"') && s.endsWith('"'))
+  ) {
+    s = s.slice(1, -1).trim();
+  }
+
+  s = s.replace(/\\n/g, '\n');
+
+  if (!/-----BEGIN [A-Z ]+-----/.test(s)) {
+    try {
+      const decoded = Buffer.from(s, 'base64').toString('utf8');
+      if (/-----BEGIN [A-Z ]+-----/.test(decoded)) {
+        s = decoded.replace(/\\n/g, '\n');
+      }
+    } catch (e) {}
+  }
+
+  return s;
+}
 
 export function generateGitHubAppJWT() {
   const now = Math.floor(Date.now() / 1000);
@@ -17,12 +41,41 @@ export function generateGitHubAppJWT() {
 
   const signingInput = `${header}.${payload}`;
 
-  // Replace literal \n in env string with real newlines (common in .env files)
-  const pem = (process.env.GITHUB_APP_PRIVATE_KEY ?? '').replace(/\\n/g, '\n');
+  const rawKey =
+    process.env.GITHUB_APP_PRIVATE_KEY ||
+    process.env.VITE_GITHUB_APP_PRIVATE_KEY ||
+    '';
+  const pem = normalizePem(rawKey);
+
+  if (!pem) {
+    throw new Error(
+      'GITHUB_APP_PRIVATE_KEY is not set or invalid. Provide a PEM-formatted RSA private key in the GITHUB_APP_PRIVATE_KEY environment variable (with newlines as \n or a base64-encoded string).'
+    );
+  }
+
+  let keyObject;
+  try {
+    keyObject = createPrivateKey({ key: pem, format: 'pem' });
+  } catch (e) {
+    try {
+      const der = Buffer.from(rawKey, 'base64');
+      keyObject = createPrivateKey({ key: der, format: 'der', type: 'pkcs8' });
+    } catch (e2) {
+      throw new Error(
+        'Failed to parse GITHUB_APP_PRIVATE_KEY. Ensure it is a valid PEM (-----BEGIN PRIVATE KEY-----...) or a base64-encoded PKCS8/PKCS1 key. Error: ' +
+          (e.message || e2.message)
+      );
+    }
+  }
 
   const sign = createSign('RSA-SHA256');
   sign.update(signingInput);
-  const signature = sign.sign(pem, 'base64url');
 
-  return `${signingInput}.${signature}`;
+  const sigBase64 = sign.sign(keyObject, 'base64');
+  const sigBase64Url = sigBase64
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+
+  return `${signingInput}.${sigBase64Url}`;
 }

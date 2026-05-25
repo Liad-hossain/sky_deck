@@ -58,15 +58,7 @@ export async function handleInstallation(
 
   const platformMetadata = {
     installation_id: installation.id,
-    account_login: installation.account?.login ?? null,
-    account_type: installation.account?.type ?? null,
-    app_id: installation.app_id ?? null,
-    app_slug: installation.app_slug ?? null,
-    repository_selection: installation.repository_selection ?? null,
-    suspended_at: installation.suspended_at ?? null,
-    installed_at: installation.created_at ?? new Date().toISOString(),
-    events: installation.events ?? [],
-    permissions: installation.permissions ?? {},
+    installation_details: installation,
   };
 
   const primaryId = String(installation.account?.id ?? '');
