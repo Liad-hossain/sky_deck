@@ -5,6 +5,59 @@ import {
   fetchGitHubEmails,
   fetchGitHubInstallationDetails,
 } from './github_auth.js';
+import { pushWebhookEntry } from '../../../redis/client.js';
+
+async function verifyGitHubWebhook(rawPayload, headers) {
+  const hook_id = headers['X-GitHub-Hook-ID'] || 'unknown';
+  const secret = process.env.VITE_GITHUB_WEBHOOK_SECRET || null;
+  if (!secret) {
+    console.log(
+      `Could not process webhook for hook_id: ${hook_id}. Webhook secret not configured.`
+    );
+    return false;
+  }
+
+  const sigHeader = (headers['x-hub-signature-256'] || '').toString();
+  if (!sigHeader) {
+    console.log(
+      `Could not process webhook for hook_id: ${hook_id}. Missing X-Hub-Signature-256 header in webhook request`
+    );
+    return false;
+  }
+
+  const crypto = await import('crypto');
+  const hmac = crypto
+    .createHmac('sha256', secret)
+    .update(rawPayload)
+    .digest('hex');
+  const expected = `sha256=${hmac}`;
+
+  const a = Buffer.from(expected);
+  const b = Buffer.from(sigHeader);
+  try {
+    if (a.length === b.length && crypto.timingSafeEqual(a, b)) valid = true;
+  } catch (e) {
+    console.log(
+      `Invalid webhook signature for hook_id: ${hook_id}. Expected:`,
+      expected,
+      'Received:',
+      sigHeader
+    );
+    return false;
+  }
+
+  return true;
+}
+
+export async function handleWebhookPayload(rawPayload, headers = {}) {
+  const isValid = await verifyGitHubWebhook(rawPayload, headers);
+  if (!isValid) {
+    console.log(`Invalid GitHub webhook payload for headers:`, headers);
+    return false;
+  }
+
+  return pushWebhookEntry(rawPayload, headers);
+}
 
 export async function handleInstallation(userId, code, installation_id) {
   if (!installation_id) {

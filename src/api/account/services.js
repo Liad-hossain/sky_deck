@@ -14,6 +14,7 @@ export async function fetchProfile(userId) {
     const result = await fetchUserProfile(userId);
     data = result.profile;
   } catch (e) {
+    console.log('Error fetching profile:', e);
     return {
       status: 500,
       body: { error: 'Something went wrong while fetching profile.' },
@@ -32,6 +33,7 @@ export async function updateProfile(userId, body) {
   try {
     await updateProfileFields(userId, updates);
   } catch (e) {
+    console.log('Error updating profile:', e);
     return {
       status: 500,
       body: { error: 'Something went wrong while updating profile' },
@@ -52,6 +54,7 @@ export async function fetchPlatforms(userId, params = {}) {
     }
     platforms = result.platforms ?? [];
   } catch (e) {
+    console.log('Error fetching platforms:', e);
     return {
       status: 500,
       body: { error: 'Something went wrong while fetching platforms.' },
@@ -69,8 +72,16 @@ export async function updatePlatform(userId, { platformId, title }) {
     return { status: 400, body: { error: 'Platform title cannot be empty!!' } };
 
   try {
-    await updatePlatformById(userId, platformId, { title });
+    const response = await updatePlatformById(userId, platformId, { title });
+    if (response.error) {
+      console.log('Error updating platform:', response.error);
+      return {
+        status: 500,
+        body: { error: 'Something went wrong while updating platform' },
+      };
+    }
   } catch (e) {
+    console.log('Error updating platform:', e);
     return {
       status: 500,
       body: { error: 'Something went wrong while updating platform' },
@@ -113,7 +124,14 @@ export async function disconnectPlatform(userId, platformId) {
     return { status: 500, body: { error: 'Failed to disconnect platform: ' } };
 
   try {
-    await disconnectPlatformById(userId, platformId);
+    const response = await disconnectPlatformById(userId, platformId);
+    if (response.error) {
+      console.log('Error disconnecting platform:', response.error);
+      return {
+        status: 500,
+        body: { error: 'Something went wrong while disconnecting platform' },
+      };
+    }
   } catch (e) {
     return {
       status: 500,
@@ -125,11 +143,25 @@ export async function disconnectPlatform(userId, platformId) {
 }
 
 export async function deletePlatform(userId, platformId) {
-  if (!platformId)
-    return { status: 400, body: { error: 'Missing platform id' } };
+  // normalize platformId which may be passed as a string or an object like { id }
+  let id = platformId;
+  if (id && typeof id === 'object') {
+    id = id.id ?? null;
+  }
+  if (!id || typeof id !== 'string')
+    return { status: 400, body: { error: 'Missing or invalid platform id' } };
+
   try {
-    await archivePlatformById(userId, platformId);
+    const response = await archivePlatformById(userId, id);
+    if (response.error) {
+      console.log('Error archiving platform:', response.error);
+      return {
+        status: 500,
+        body: { error: 'Something went wrong while deleting platform' },
+      };
+    }
   } catch (e) {
+    console.log('Exception while deleting platform:', e);
     return {
       status: 500,
       body: { error: 'Something went wrong while deleting platform' },

@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 
-console.log('Client bundle starting — initializing error overlay');
+// startup log removed
 
 function ensureErrorOverlay() {
   if (document.getElementById('error-overlay')) return;

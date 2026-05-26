@@ -25,10 +25,10 @@ import {
   SiDiscord,
 } from 'react-icons/si';
 import Navbar from '../components/Navbar';
+import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
-
 const container = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.1 } },
@@ -37,7 +37,6 @@ const item = {
   hidden: { y: 20, opacity: 0 },
   show: { y: 0, opacity: 1 },
 };
-
 const PLATFORM_META = {
   github: {
     icon: SiGithub,
@@ -113,6 +112,9 @@ export default function Dashboard() {
   const [connectedPlatforms, setConnectedPlatforms] = useState([]);
   const [menuOpenFor, setMenuOpenFor] = useState(null); // platform id
   const menuRefMap = useRef({});
+  const menuDropdownRef = useRef(null);
+  const [menuPos, setMenuPos] = useState(null);
+  const menuOpenTimeoutRef = useRef(null);
   const [editModal, setEditModal] = useState(null); // { id, title }
   const [confirmModal, setConfirmModal] = useState(null); // { mode: 'disconnect'|'delete', id }
   const [busy, setBusy] = useState(false);
@@ -178,10 +180,15 @@ export default function Dashboard() {
   // Close menu when clicking outside
   useEffect(() => {
     function onDocClick(ev) {
+      // Close menu when clicking outside
       if (!menuOpenFor) return;
-      const el = menuRefMap.current[menuOpenFor];
-      if (!el) return;
-      if (!el.contains(ev.target)) setMenuOpenFor(null);
+      const btn = menuRefMap.current[menuOpenFor];
+      const menuEl = menuDropdownRef.current;
+      // if click inside button or inside menu, ignore
+      if (btn && btn.contains(ev.target)) return;
+      if (menuEl && menuEl.contains(ev.target)) return;
+      setMenuOpenFor(null);
+      setMenuPos(null);
     }
     function onKey(ev) {
       if (ev.key === 'Escape') setMenuOpenFor(null);
@@ -191,8 +198,16 @@ export default function Dashboard() {
     return () => {
       document.removeEventListener('click', onDocClick);
       document.removeEventListener('keydown', onKey);
+      if (menuOpenTimeoutRef.current) {
+        clearTimeout(menuOpenTimeoutRef.current);
+        menuOpenTimeoutRef.current = null;
+      }
     };
   }, [menuOpenFor]);
+
+  useEffect(() => {
+    // menu state changed (no-op)
+  }, [menuOpenFor, menuPos]);
 
   const createdAt = user?.created_at
     ? new Date(user.created_at).toLocaleDateString('en-US', {
@@ -405,76 +420,110 @@ export default function Dashboard() {
                               ? 'Connected'
                               : 'Disconnected'}
                           </div>
-                          <div
-                            ref={(el) => (menuRefMap.current[platform.id] = el)}
-                          >
+                          <div>
                             <button
-                              onClick={() =>
-                                setMenuOpenFor(
-                                  menuOpenFor === platform.id
-                                    ? null
-                                    : platform.id
-                                )
+                              type="button"
+                              ref={(el) =>
+                                (menuRefMap.current[platform.id] = el)
                               }
-                              className="rounded-full p-1 text-gray-400 hover:text-white"
+                              onPointerDown={(e) => {
+                                // Prevent document click from closing immediately
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const isOpen = menuOpenFor === platform.id;
+                                if (isOpen) {
+                                  setMenuOpenFor(null);
+                                  setMenuPos(null);
+                                  return;
+                                }
+                                const rect =
+                                  e.currentTarget.getBoundingClientRect();
+                                const menuWidth = 144;
+                                const left = Math.max(
+                                  8,
+                                  rect.right + window.scrollX - menuWidth
+                                );
+                                const top = rect.bottom + window.scrollY + 6;
+                                setMenuPos({ left, top });
+                                setMenuOpenFor(platform.id);
+                              }}
+                              className="relative z-30 rounded-full p-1 text-gray-400 hover:text-white"
                               aria-label="Open menu"
                             >
                               ⋯
                             </button>
-                            {menuOpenFor === platform.id && (
-                              <div className="absolute right-0 mt-2 w-36 rounded-md bg-black/80 p-1 text-sm shadow-lg">
-                                <button
-                                  onClick={() =>
-                                    setEditModal({
-                                      id: platform.id,
-                                      title: platform.title,
-                                    })
-                                  }
-                                  className="block w-full px-2 py-1 text-left text-sm text-gray-200 hover:bg-white/5"
+
+                            {menuOpenFor === platform.id &&
+                              menuPos &&
+                              typeof document !== 'undefined' &&
+                              createPortal(
+                                <div
+                                  ref={menuDropdownRef}
+                                  className="fixed z-50 w-44 rounded-md p-1 text-sm shadow-lg"
+                                  style={{
+                                    left: menuPos.left,
+                                    top: menuPos.top,
+                                    backgroundColor: '#000000',
+                                    color: '#ffffff',
+                                    minWidth: '180px',
+                                    padding: '6px',
+                                  }}
                                 >
-                                  Edit
-                                </button>
-                                {platform.is_connected ? (
-                                  <>
-                                    <button
-                                      onClick={() =>
-                                        setConfirmModal({
-                                          mode: 'disconnect',
-                                          id: platform.id,
-                                        })
-                                      }
-                                      className="block w-full px-2 py-1 text-left text-sm text-gray-200 hover:bg-white/5"
-                                    >
-                                      Disconnect
-                                    </button>
-                                    <button
-                                      onClick={() =>
-                                        setConfirmModal({
-                                          mode: 'delete',
-                                          id: platform.id,
-                                        })
-                                      }
-                                      className="block w-full px-2 py-1 text-left text-sm text-red-400 hover:bg-white/5"
-                                    >
-                                      Delete
-                                    </button>
-                                  </>
-                                ) : (
                                   <button
-                                    onClick={async () => {
-                                      // start connect flow for this platform type
-                                      await connectPlatform(
-                                        platform.platform_type
-                                      );
-                                      setMenuOpenFor(null);
-                                    }}
-                                    className="block w-full px-2 py-1 text-left text-sm text-emerald-300 hover:bg-white/5"
+                                    onClick={() =>
+                                      setEditModal({
+                                        id: platform.id,
+                                        title: platform.title,
+                                      })
+                                    }
+                                    className="block w-full px-2 py-1 text-left text-sm text-white hover:bg-gray-800"
                                   >
-                                    Connect
+                                    Edit
                                   </button>
-                                )}
-                              </div>
-                            )}
+                                  {platform.is_connected ? (
+                                    <>
+                                      <button
+                                        onClick={() =>
+                                          setConfirmModal({
+                                            mode: 'disconnect',
+                                            id: platform.id,
+                                          })
+                                        }
+                                        className="block w-full px-2 py-1 text-left text-sm text-white hover:bg-gray-800"
+                                      >
+                                        Disconnect
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <button
+                                        onClick={async () => {
+                                          await connectPlatform(
+                                            platform.platform_type
+                                          );
+                                          setMenuOpenFor(null);
+                                          setMenuPos(null);
+                                        }}
+                                        className="block w-full px-2 py-1 text-left text-sm text-white hover:bg-gray-800"
+                                      >
+                                        Connect
+                                      </button>
+                                      <button
+                                        onClick={() =>
+                                          setConfirmModal({
+                                            mode: 'delete',
+                                            id: platform.id,
+                                          })
+                                        }
+                                        className="block w-full px-2 py-1 text-left text-sm text-white hover:bg-gray-800"
+                                      >
+                                        Delete
+                                      </button>
+                                    </>
+                                  )}
+                                </div>,
+                                document.body
+                              )}
                           </div>
                         </div>
                       </div>
@@ -595,17 +644,29 @@ export default function Dashboard() {
                         );
                         if (error) throw error;
                         toast.success('Platform disconnected');
+                        // optimistic update: mark platform as disconnected
+                        setConnectedPlatforms((items) =>
+                          items.map((p) =>
+                            p.id === confirmModal.id
+                              ? {
+                                  ...p,
+                                  is_connected: false,
+                                  disconnected_at: new Date().toISOString(),
+                                }
+                              : p
+                          )
+                        );
                       } else {
                         const { error } = await deletePlatformById(
                           confirmModal.id
                         );
                         if (error) throw error;
                         toast.success('Platform deleted');
+                        // optimistic update: remove platform from list
+                        setConnectedPlatforms((items) =>
+                          items.filter((p) => p.id !== confirmModal.id)
+                        );
                       }
-                      // refresh local list
-                      setConnectedPlatforms(
-                        await getConnectedPlatforms().then((r) => r.platforms)
-                      );
                     } catch (err) {
                       toast.error(err.message || 'Operation failed');
                       setBusy(false);
@@ -613,9 +674,6 @@ export default function Dashboard() {
                     }
                     setBusy(false);
                     setConfirmModal(null);
-                    setConnectedPlatforms(
-                      await getConnectedPlatforms().then((r) => r.platforms)
-                    );
                   }}
                   busy={busy}
                   onCancel={() => setConfirmModal(null)}

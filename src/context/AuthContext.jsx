@@ -178,24 +178,7 @@ export function AuthProvider({ children }) {
     };
   };
 
-  const getConnectedPlatforms = async () => {
-    if (!isSupabaseConfigured || !supabase) {
-      return { platforms: [], error: new Error('Not authenticated') };
-    }
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session)
-      return { platforms: [], error: new Error('Not authenticated') };
-    const res = await fetch(`/api/platforms?is_connected=true`, {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    const data = await res.json();
-    return {
-      platforms: data.platforms ?? [],
-      error: data.error ? new Error(data.error) : null,
-    };
-  };
+  // getConnectedPlatforms removed - not used anywhere in the codebase
 
   const connectPlatform = async (platformType) => {
     if (platformType === 'github') {
@@ -321,7 +304,6 @@ export function AuthProvider({ children }) {
         updateProfile,
         getProfile,
         getPlatforms,
-        getConnectedPlatforms,
         connectPlatform,
         disconnectPlatform,
         updatePlatformTitle,

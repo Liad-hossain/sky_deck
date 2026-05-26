@@ -377,17 +377,7 @@ export default function Integrations() {
                           <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-400">
                             Coming Soon
                           </span>
-                        ) : isConnected ? (
-                          <span className="flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/20 px-2.5 py-1 text-xs font-semibold text-emerald-400">
-                            <HiOutlineCheckCircle className="text-sm" />
-                            Connected
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-gray-500">
-                            <HiOutlineXCircle className="text-sm" />
-                            Not connected
-                          </span>
-                        )}
+                        ) : null}
                       </div>
 
                       <h3 className="mb-1 text-base font-semibold text-white">
@@ -431,25 +421,7 @@ export default function Integrations() {
                             Connect
                           </motion.button>
 
-                          {/* Delete button — only shown when row exists in DB */}
-                          {hasRow && (
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              disabled={busy || isConnected}
-                              title={
-                                isConnected
-                                  ? 'Disconnect first before deleting'
-                                  : 'Delete integration record'
-                              }
-                              onClick={() =>
-                                setModal({ mode: 'delete', platform })
-                              }
-                              className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-gray-500 transition hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              <HiOutlineTrash className="text-base" />
-                            </motion.button>
-                          )}
+                          {/* Delete button removed for Integrations tab as requested */}
                         </div>
                       )}
                     </motion.div>
