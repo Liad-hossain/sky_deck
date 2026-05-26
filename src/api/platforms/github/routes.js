@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { handleInstallation } from './handlers.js';
+import { handleInstallation, handleWebhookPayload } from './handlers.js';
 import { authenticateUser } from '../../authentication.js';
 
 const github = new Hono();
@@ -22,8 +22,18 @@ github.post(
 
 // ── POST /api/platforms/github/webhook ───────────────────────────────────────
 github.post('/webhook', async (c) => {
-  // TODO: verify x-hub-signature-256 -> look up platform by installation_id -> insertGitHubActivity()
-  return c.json({ success: true });
+  try {
+    const raw = await c.req.text();
+    const headersObj = {};
+    for (const [k, v] of c.req.headers) {
+      headersObj[k] = v;
+    }
+    await handleWebhookPayload(raw, headersObj);
+    return c.json({ success: true });
+  } catch (e) {
+    console.error('Webhook handler error:', e);
+    return c.json({ success: false, error: String(e) }, 500);
+  }
 });
 
 export { github as default };

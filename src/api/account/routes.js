@@ -63,7 +63,7 @@ api.delete(
   '/platforms/delete/:platformId',
   authenticateUser(async (c, user) => {
     const platformId = c.req.param('platformId');
-    const result = await deletePlatform(user.id, { id: platformId });
+    const result = await deletePlatform(user.id, platformId);
     return c.json(result.body, result.status);
   })
 );

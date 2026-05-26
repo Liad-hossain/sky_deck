@@ -11,7 +11,7 @@ export async function uploadToCloudinary(file) {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('upload_preset', uploadPreset);
-  console.log('[Cloudinary] cloud:', cloudName, 'preset:', uploadPreset);
+  // debug logs removed
 
   try {
     const response = await fetch(url, {

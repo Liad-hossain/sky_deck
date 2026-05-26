@@ -6,7 +6,7 @@ export async function fetchGitHubTokens(code) {
   const redirectUri = `${process.env.VITE_APP_URL}integrations/github/callback`;
 
   const url = `https://github.com/login/oauth/access_token?client_id=${clientId}&client_secret=${clientSecret}&redirect_uri=${redirectUri}&code=${code}`;
-  console.log(`URL for token exchange: ${url}`);
+  // debug logs removed
 
   const res = await fetch(url, {
     method: 'GET',
