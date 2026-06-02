@@ -7,8 +7,21 @@ import {
   HiOutlineEyeOff,
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+
+// Supabase recovery puts tokens in the URL hash:
+//   #access_token=...&refresh_token=...&type=recovery
+function parseHashTokens() {
+  if (typeof window === 'undefined') return {};
+  const hash = window.location.hash.replace(/^#/, '');
+  if (!hash) return {};
+  const params = new URLSearchParams(hash);
+  return {
+    access_token: params.get('access_token') ?? '',
+    refresh_token: params.get('refresh_token') ?? '',
+    type: params.get('type') ?? '',
+  };
+}
 
 export default function ResetPassword() {
   const [password, setPassword] = useState('');
@@ -16,40 +29,23 @@ export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [ready, setReady] = useState(false);
+  const [tokens, setTokens] = useState(null);
   const { resetPassword } = useAuth();
   const navigate = useNavigate();
 
-  // Supabase sends the user back with an access token in the URL hash.
-  // We listen for the PASSWORD_RECOVERY event which fires automatically
-  // when the reset link is opened.
   useEffect(() => {
-    // If the URL hash contains a recovery token, Supabase fires
-    // PASSWORD_RECOVERY immediately on load — handle it.
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setReady(true);
-      }
-    });
-
-    // Also check if the user is already in a recovery session
-    // (handles page refresh after the event already fired)
-    supabase.auth
-      .getSession()
-      .then(({ data: { session } }) => {
-        if (session?.user) {
-          setReady(true);
-        }
-      })
-      .catch(() => {});
-
-    return () => subscription.unsubscribe();
+    const t = parseHashTokens();
+    if (t.access_token && t.type === 'recovery') {
+      setTokens(t);
+    }
   }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!tokens?.access_token) {
+      toast.error('Recovery token missing — open the link from your email.');
+      return;
+    }
     if (password !== confirm) {
       toast.error('Passwords do not match');
       return;
@@ -59,18 +55,23 @@ export default function ResetPassword() {
       return;
     }
     setLoading(true);
-    const { error } = await resetPassword(password);
+    const { error } = await resetPassword({
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      newPassword: password,
+    });
     setLoading(false);
     if (error) {
       toast.error(error.message);
     } else {
       toast.success('Password updated! Please sign in.');
+      // Clear the hash so tokens aren't retained.
+      window.history.replaceState(null, '', window.location.pathname);
       navigate('/signin');
     }
   };
 
-  // Guard: show a friendly message if the page is opened without a valid token
-  if (!ready) {
+  if (!tokens) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
         <motion.div
@@ -156,7 +157,6 @@ export default function ResetPassword() {
             </button>
           </div>
 
-          {/* Password strength hint */}
           {password.length > 0 && (
             <p
               className={`pl-1 text-xs ${password.length >= 8 ? 'text-emerald-400' : 'text-amber-400'}`}

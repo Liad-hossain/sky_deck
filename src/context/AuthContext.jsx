@@ -1,14 +1,12 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import {
-  supabase,
-  isSupabaseConfigured,
-  supabaseConfigError,
-} from '../lib/supabase';
-import { uploadToCloudinary } from '../lib/cloudinary';
-import { redirectToGitHubInstall } from '../integrations/github/index.js';
+  apiFetch,
+  loadSession,
+  saveSession,
+  clearSession,
+} from '../api/session';
 
 const AuthContext = createContext({});
-
 export const useAuth = () => useContext(AuthContext);
 
 export function AuthProvider({ children }) {
@@ -16,303 +14,171 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) {
+    let cancelled = false;
+    (async () => {
+      const session = loadSession();
+      if (!session?.access_token) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
+      const { ok, data } = await apiFetch('/api/session');
+      if (cancelled) return;
+      if (ok && data?.data?.user) setUser(data.data.user);
+      else {
+        clearSession();
+        setUser(null);
+      }
       setLoading(false);
-      return;
-    }
-
-    const timeout = setTimeout(() => setLoading(false), 8000);
-
-    supabase.auth
-      .getSession()
-      .then(({ data: { session } }) => {
-        setUser(session?.user ?? null);
-        setLoading(false);
-        clearTimeout(timeout);
-      })
-      .catch(() => {
-        setLoading(false);
-        clearTimeout(timeout);
-      });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setLoading(false); // always unblock on any auth state change
-    });
-
+    })();
     return () => {
-      subscription.unsubscribe();
-      clearTimeout(timeout);
+      cancelled = true;
     };
   }, []);
 
-  const signUp = async (email, password) => {
-    if (!isSupabaseConfigured || !supabase) {
-      return { data: null, error: new Error(supabaseConfigError) };
-    }
-
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/verify-email`,
-      },
+  const signUp = async (...args) => {
+    const { email, password, fullName } =
+      typeof args[0] === 'object' && args[0] !== null
+        ? args[0]
+        : { email: args[0], password: args[1], fullName: args[2] };
+    const { ok, data, error } = await apiFetch('/api/signup', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, fullName }),
     });
-    return { data, error };
+    if (!ok) return { data: null, error: { message: error } };
+    return { data: data?.data ?? null, error: null };
   };
 
-  const signIn = async (email, password) => {
-    if (!isSupabaseConfigured || !supabase) {
-      return { data: null, error: new Error(supabaseConfigError) };
-    }
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+  const signIn = async (...args) => {
+    const { email, password } =
+      typeof args[0] === 'object' && args[0] !== null
+        ? args[0]
+        : { email: args[0], password: args[1] };
+    const { ok, data, error } = await apiFetch('/api/signin', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
     });
-    return { data, error };
+    if (!ok) return { data: null, error: { message: error } };
+    const payload = data?.data;
+    if (payload?.session) saveSession(payload.session);
+    if (payload?.user) setUser(payload.user);
+    return { data: payload, error: null };
   };
 
   const signOut = async () => {
-    if (!isSupabaseConfigured || !supabase) {
-      return { error: new Error(supabaseConfigError) };
-    }
-
-    const { error } = await supabase.auth.signOut();
-    return { error };
+    await apiFetch('/api/signout', { method: 'POST' });
+    clearSession();
+    setUser(null);
+    return { error: null };
   };
 
   const forgotPassword = async (email) => {
-    if (!isSupabaseConfigured || !supabase) {
-      return { error: new Error(supabaseConfigError) };
-    }
-
-    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+    const { ok, error } = await apiFetch('/api/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
     });
-    return { data, error };
+    return ok ? { error: null } : { error: { message: error } };
   };
 
-  const resetPassword = async (newPassword) => {
-    if (!isSupabaseConfigured || !supabase) {
-      return { error: new Error(supabaseConfigError) };
-    }
-
-    const { data, error } = await supabase.auth.updateUser({
-      password: newPassword,
+  const resetPassword = async ({
+    access_token,
+    refresh_token,
+    newPassword,
+  }) => {
+    const { ok, error } = await apiFetch('/api/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ access_token, refresh_token, newPassword }),
     });
-    return { data, error };
-  };
-
-  const uploadAvatar = async (file) => {
-    if (!user) {
-      return { url: null, error: new Error('Not authenticated') };
-    }
-    try {
-      const url = await uploadToCloudinary(file);
-      const { error: saveError } = await updateProfile({ avatar_url: url });
-      if (saveError) return { url: null, error: saveError };
-      return { url, error: null };
-    } catch (error) {
-      return { url: null, error };
-    }
-  };
-
-  const updateProfile = async ({ full_name, avatar_url }) => {
-    if (!isSupabaseConfigured || !supabase) {
-      return { error: new Error('Not authenticated') };
-    }
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) return { error: new Error('Not authenticated') };
-    const res = await fetch('/api/profile', {
-      method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ full_name, avatar_url }),
-    });
-    const data = await res.json();
-    return { error: data.error ? new Error(data.error) : null };
+    return ok ? { error: null } : { error: { message: error } };
   };
 
   const getProfile = async () => {
-    if (!isSupabaseConfigured || !supabase) {
-      return { profile: null, error: new Error('Not authenticated') };
-    }
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session)
-      return { profile: null, error: new Error('Not authenticated') };
-    const res = await fetch('/api/profile', {
-      headers: { Authorization: `Bearer ${session.access_token}` },
+    const { ok, data, error } = await apiFetch('/api/profile');
+    if (!ok) return { profile: null, error: { message: error } };
+    // BE returns { data: profile } or { profile }; accept either.
+    return { profile: data?.profile ?? data?.data ?? null, error: null };
+  };
+
+  const updateProfile = async (updates) => {
+    const { ok, data, error } = await apiFetch('/api/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
     });
-    const data = await res.json();
+    if (!ok) return { profile: null, error: { message: error } };
     return {
-      profile: data.profile ?? null,
-      error: data.error ? new Error(data.error) : null,
+      profile: data?.profile ?? data?.data ?? null,
+      error: null,
     };
+  };
+
+  const uploadAvatar = async (file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    const { ok, data, error } = await apiFetch('/api/upload/avatar', {
+      method: 'POST',
+      body: fd,
+    });
+    if (!ok) return { url: null, error: { message: error } };
+    return { url: data?.url ?? null, error: null };
   };
 
   const getPlatforms = async () => {
-    if (!isSupabaseConfigured || !supabase) {
-      return { platforms: [], error: new Error('Not authenticated') };
-    }
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session)
-      return { platforms: [], error: new Error('Not authenticated') };
-    const res = await fetch('/api/platforms', {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    const data = await res.json();
-    return {
-      platforms: data.platforms ?? [],
-      error: data.error ? new Error(data.error) : null,
-    };
+    const { ok, data, error } = await apiFetch('/api/platforms');
+    if (!ok) return { platforms: [], error: { message: error } };
+    return { platforms: data?.platforms ?? [], error: null };
   };
 
-  // getConnectedPlatforms removed - not used anywhere in the codebase
-
-  const connectPlatform = async (platformType) => {
-    if (platformType === 'github') {
-      redirectToGitHubInstall();
-      return { error: null };
-    }
-
-    return {
-      error: new Error(
-        'connectPlatform must be performed via server-side install flow'
-      ),
-    };
+  const connectPlatform = () => {
+    window.location.href = '/api/platforms/github/install-redirect';
   };
 
-  const disconnectPlatform = async (platformType) => {
-    if (!isSupabaseConfigured || !supabase || !user) {
-      return { error: new Error('Not authenticated') };
-    }
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    const listRes = await fetch('/api/platforms', {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    const listData = await listRes.json().catch(() => ({}));
-    const row = (listData.platforms ?? []).find(
-      (p) =>
-        p.platform_type === platformType && p.is_connected && !p.is_archived
-    );
-    if (!row) return { error: new Error('No connected platform found') };
-
-    const res = await fetch(`/api/platforms/disconnect/${row.id}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    const data = await res.json();
-    return { error: data.error ? new Error(data.error) : null };
-  };
-
-  const updatePlatformTitle = async (id, title) => {
-    if (!isSupabaseConfigured || !supabase)
-      return { error: new Error('Not authenticated') };
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) return { error: new Error('Not authenticated') };
-    const res = await fetch('/api/platforms', {
+  const updatePlatformTitle = async (platformId, title) => {
+    const { ok, data, error } = await apiFetch('/api/platforms', {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ platformId: id, title }),
+      body: JSON.stringify({ platformId, title }),
     });
-    const data = await res.json();
-    return { error: data.error ? new Error(data.error) : null };
+    if (!ok) return { data: null, error: { message: error } };
+    return { data: data?.data ?? null, error: null };
   };
 
-  const disconnectPlatformByIdClient = async (id) => {
-    if (!isSupabaseConfigured || !supabase)
-      return { error: new Error('Not authenticated') };
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) return { error: new Error('Not authenticated') };
-    const res = await fetch(`/api/platforms/disconnect/${id}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    const data = await res.json();
-    return { error: data.error ? new Error(data.error) : null };
-  };
-
-  const deletePlatformByIdClient = async (id) => {
-    if (!isSupabaseConfigured || !supabase)
-      return { error: new Error('Not authenticated') };
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) return { error: new Error('Not authenticated') };
-    const res = await fetch(`/api/platforms/delete/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    const data = await res.json();
-    return { error: data.error ? new Error(data.error) : null };
-  };
-
-  const deletePlatform = async (platformType) => {
-    if (!isSupabaseConfigured || !supabase || !user) {
-      return { error: new Error('Not authenticated') };
-    }
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const res = await fetch('/api/platforms', {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    const data = await res.json();
-    const row = (data.platforms ?? []).find(
-      (p) => p.platform_type === platformType && !p.is_archived
+  const disconnectPlatformById = async (platformId) => {
+    const { ok, error } = await apiFetch(
+      `/api/platforms/disconnect/${platformId}`,
+      { method: 'POST' }
     );
-    if (!row) return { error: new Error('Platform not found') };
-    if (row.is_connected)
-      return { error: new Error('Please disconnect before deleting.') };
-    return deletePlatformByIdClient(row.id);
+    return ok ? { error: null } : { error: { message: error } };
   };
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        signUp,
-        signIn,
-        signOut,
-        forgotPassword,
-        resetPassword,
-        uploadAvatar,
-        updateProfile,
-        getProfile,
-        getPlatforms,
-        connectPlatform,
-        disconnectPlatform,
-        updatePlatformTitle,
-        disconnectPlatformById: disconnectPlatformByIdClient,
-        deletePlatformById: deletePlatformByIdClient,
-        deletePlatform,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  const deletePlatformById = async (platformId) => {
+    const { ok, error } = await apiFetch(
+      `/api/platforms/delete/${platformId}`,
+      { method: 'DELETE' }
+    );
+    return ok ? { error: null } : { error: { message: error } };
+  };
+
+  // Legacy name kept for Integrations.jsx caller.
+  const deletePlatform = deletePlatformById;
+  const disconnectPlatform = disconnectPlatformById;
+
+  const value = {
+    user,
+    loading,
+    signUp,
+    signIn,
+    signOut,
+    forgotPassword,
+    resetPassword,
+    getProfile,
+    updateProfile,
+    uploadAvatar,
+    getPlatforms,
+    connectPlatform,
+    updatePlatformTitle,
+    disconnectPlatformById,
+    deletePlatformById,
+    disconnectPlatform,
+    deletePlatform,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

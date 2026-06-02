@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { isSupabaseConfigured, supabaseConfigError } from './lib/supabase';
 import ErrorBoundary from './components/ErrorBoundary';
 import SignUp from './pages/SignUp';
 import SignIn from './pages/SignIn';
@@ -12,29 +11,6 @@ import ResetPassword from './pages/ResetPassword';
 import Profile from './pages/Profile';
 import Integrations from './pages/Integrations';
 import GitHubCallback from './pages/GitHubCallback';
-
-function SetupRequiredScreen() {
-  return (
-    <div className="flex min-h-screen items-center justify-center p-6">
-      <div className="glass w-full max-w-2xl rounded-3xl p-8 text-white">
-        <h1 className="gradient-text mb-4 text-2xl font-bold">
-          Supabase configuration required
-        </h1>
-        <p className="mb-4 text-gray-300">{supabaseConfigError}</p>
-        <div className="space-y-1 rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-gray-200">
-          <p>
-            1. Create or update your <code>.env</code> file.
-          </p>
-          <p>
-            2. Add <code>VITE_SUPABASE_URL</code> and
-            <code> VITE_SUPABASE_ANON_KEY</code>.
-          </p>
-          <p>3. Restart the dev server.</p>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -57,10 +33,6 @@ function LoadingScreen() {
 }
 
 export default function App() {
-  if (!isSupabaseConfigured) {
-    return <SetupRequiredScreen />;
-  }
-
   return (
     <BrowserRouter>
       <AuthProvider>

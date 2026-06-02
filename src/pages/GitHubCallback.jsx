@@ -10,7 +10,6 @@ import {
 import toast from 'react-hot-toast';
 import { exchangeGitHubCode } from '../integrations/github/index.js';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../lib/supabase';
 
 export default function GitHubCallback() {
   const [searchParams] = useSearchParams();
@@ -46,25 +45,9 @@ export default function GitHubCallback() {
 
     async function complete() {
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+        // apiFetch in exchangeGitHubCode injects the auth header from local session.
+        exchangeGitHubCode(code, installationId).catch(() => {});
 
-        if (!session) {
-          setStatus('error');
-          setMessage('Your session expired. Please sign in again.');
-          return;
-        }
-
-        // Start the exchange in background (sendBeacon / fire-and-forget).
-        // We don't await it so the browser and GitHub callback flow can finish
-        // immediately and avoid GitHub retrying the callback.
-        exchangeGitHubCode(code, installationId, session.access_token).catch(
-          () => {}
-        );
-
-        // Show success immediately — the background worker will complete the
-        // server-side work. We don't rely on githubUser payload here.
         setStatus('success');
         toast.success('GitHub connection in progress.');
 

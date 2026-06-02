@@ -1,3 +1,4 @@
+// Backend profile + platforms processing.
 import { fetchUserProfile, updateProfileFields } from '../../db/profiles.js';
 import {
   fetchUserPlatforms,
@@ -8,11 +9,12 @@ import {
 } from '../../db/platforms.js';
 import { handleDisconnect } from '../platforms/github/handlers.js';
 
+// ──────────────── Profile ────────────────
+
 export async function fetchProfile(userId) {
-  let data = null;
   try {
-    const result = await fetchUserProfile(userId);
-    data = result.profile;
+    const { profile } = await fetchUserProfile(userId);
+    return { status: 200, body: { profile: profile ?? null } };
   } catch (e) {
     console.log('Error fetching profile:', e);
     return {
@@ -20,18 +22,21 @@ export async function fetchProfile(userId) {
       body: { error: 'Something went wrong while fetching profile.' },
     };
   }
-
-  return { status: 200, body: { profile: data ?? null } };
 }
 
 export async function updateProfile(userId, body) {
   const updates = {};
-  if (body.full_name) updates.full_name = body.full_name;
-  if (body.avatar_url) updates.avatar_url = body.avatar_url;
-  updates.updated_at = new Date().toISOString();
+  if (body?.full_name !== undefined) updates.full_name = body.full_name;
+  if (body?.avatar_url !== undefined) updates.avatar_url = body.avatar_url;
 
   try {
-    await updateProfileFields(userId, updates);
+    const { error } = await updateProfileFields(userId, updates);
+    if (error) {
+      return {
+        status: 500,
+        body: { error: 'Something went wrong while updating profile' },
+      };
+    }
   } catch (e) {
     console.log('Error updating profile:', e);
     return {
@@ -43,16 +48,19 @@ export async function updateProfile(userId, body) {
   return { status: 200, body: { success: true } };
 }
 
+// ──────────────── Platforms ────────────────
+
 export async function fetchPlatforms(userId, params = {}) {
-  let platforms = [];
   try {
     let result;
     if (params.is_connected !== undefined) {
-      result = await fetchUserPlatforms(userId, params.is_connected);
+      const flag =
+        params.is_connected === 'true' || params.is_connected === true;
+      result = await fetchUserPlatforms(userId, flag);
     } else {
       result = await fetchUserPlatforms(userId);
     }
-    platforms = result.platforms ?? [];
+    return { status: 200, body: { platforms: result.platforms ?? [] } };
   } catch (e) {
     console.log('Error fetching platforms:', e);
     return {
@@ -60,26 +68,21 @@ export async function fetchPlatforms(userId, params = {}) {
       body: { error: 'Something went wrong while fetching platforms.' },
     };
   }
-
-  return { status: 200, body: { platforms: platforms ?? [] } };
 }
 
-export async function updatePlatform(userId, { platformId, title }) {
+export async function updatePlatform(userId, { platformId, title } = {}) {
   if (!platformId)
     return { status: 400, body: { error: 'Missing platform id' } };
-
   if (!title)
     return { status: 400, body: { error: 'Platform title cannot be empty!!' } };
 
   try {
-    const response = await updatePlatformById(userId, platformId, { title });
-    if (response.error) {
-      console.log('Error updating platform:', response.error);
+    const { error } = await updatePlatformById(userId, platformId, { title });
+    if (error)
       return {
         status: 500,
         body: { error: 'Something went wrong while updating platform' },
       };
-    }
   } catch (e) {
     console.log('Error updating platform:', e);
     return {
@@ -96,42 +99,37 @@ export async function disconnectPlatform(userId, platformId) {
     return { status: 400, body: { error: 'Missing platform id' } };
 
   let platform = null;
-
   try {
-    platform = await fetchPlatformById(userId, platformId);
-    if (!platform.platform) {
+    const r = await fetchPlatformById(userId, platformId);
+    if (!r.platform)
       return { status: 404, body: { error: 'Platform not found' } };
-    }
-    platform = platform.platform;
-
-    if (!platform.is_connected) {
+    platform = r.platform;
+    if (!platform.is_connected)
       return {
         status: 400,
         body: { error: 'Platform is already disconnected' },
       };
-    }
   } catch (e) {
+    console.log('Error fetching platform for disconnect:', e);
     return {
       status: 500,
       body: { error: 'Something went wrong while fetching platform' },
     };
   }
 
-  const { success, error, status } = await handleDisconnect(
+  const { success } = await handleDisconnect(
     platform.platform_metadata?.installation_id
   );
   if (!success)
-    return { status: 500, body: { error: 'Failed to disconnect platform: ' } };
+    return { status: 500, body: { error: 'Failed to disconnect platform' } };
 
   try {
-    const response = await disconnectPlatformById(userId, platformId);
-    if (response.error) {
-      console.log('Error disconnecting platform:', response.error);
+    const { error } = await disconnectPlatformById(userId, platformId);
+    if (error)
       return {
         status: 500,
         body: { error: 'Something went wrong while disconnecting platform' },
       };
-    }
   } catch (e) {
     return {
       status: 500,
@@ -143,23 +141,18 @@ export async function disconnectPlatform(userId, platformId) {
 }
 
 export async function deletePlatform(userId, platformId) {
-  // normalize platformId which may be passed as a string or an object like { id }
   let id = platformId;
-  if (id && typeof id === 'object') {
-    id = id.id ?? null;
-  }
+  if (id && typeof id === 'object') id = id.id ?? null;
   if (!id || typeof id !== 'string')
     return { status: 400, body: { error: 'Missing or invalid platform id' } };
 
   try {
-    const response = await archivePlatformById(userId, id);
-    if (response.error) {
-      console.log('Error archiving platform:', response.error);
+    const { error } = await archivePlatformById(userId, id);
+    if (error)
       return {
         status: 500,
         body: { error: 'Something went wrong while deleting platform' },
       };
-    }
   } catch (e) {
     console.log('Exception while deleting platform:', e);
     return {

@@ -25,7 +25,6 @@ import {
   redirectToGitHubInstall,
   disconnectGitHub,
 } from '../integrations/github/index.js';
-import { supabase } from '../lib/supabase';
 
 // ── Confirmation modal ────────────────────────────────────────────────────────
 function ConfirmModal({ open, onClose, onConfirm, mode, platformName, busy }) {
@@ -271,18 +270,14 @@ export default function Integrations() {
     const platform = modal.platform;
     setBusy(true);
     try {
-      // For GitHub: call Edge Function to revoke token + update DB
+      // For GitHub: BE handles token revocation + DB update
       if (platform.key === 'github') {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        const { error } = await disconnectGitHub(session.access_token);
+        const { error } = await disconnectGitHub();
         if (error) {
           toast.error(error);
           return;
         }
       }
-      // For other platforms (future): add their revocation here
       toast.success(`${platform.name} disconnected`);
       setModal(null);
       await load();

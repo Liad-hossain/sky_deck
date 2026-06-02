@@ -58,18 +58,6 @@ window.addEventListener('unhandledrejection', (ev) => {
       import('./components/ErrorBoundary'),
     ]);
 
-    try {
-      const sup = await import('./lib/supabase');
-      const s = document.getElementById('client-status');
-      if (s) {
-        if (!sup.isSupabaseConfigured) {
-          s.innerText = `Supabase not configured — ${sup.supabaseConfigError}`;
-        }
-      }
-    } catch (e) {
-      console.error('Could not import supabase module', e);
-    }
-
     ReactDOM.createRoot(document.getElementById('root')).render(
       <React.StrictMode>
         <ErrorBoundary>

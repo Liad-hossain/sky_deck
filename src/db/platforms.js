@@ -1,6 +1,6 @@
-import { supabase, supabaseAdmin } from '../lib/supabase.js';
+import { supabaseAdmin, supabaseAnon } from '../api/supabase_admin.js';
 
-const client = supabaseAdmin ?? supabase;
+const client = supabaseAdmin ?? supabaseAnon;
 
 export async function fetchUserPlatforms(userId, isConnected = null) {
   let query = client

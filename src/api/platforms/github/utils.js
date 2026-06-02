@@ -1,4 +1,5 @@
 import { createSign, createPrivateKey } from 'crypto';
+import { GITHUB_APP_PRIVATE_KEY, GITHUB_APP_ID } from '../../env_variables';
 
 function normalizePem(raw) {
   if (!raw) return '';
@@ -35,17 +36,13 @@ export function generateGitHubAppJWT() {
     JSON.stringify({
       iat: now - 60, // issued 60s ago to cover clock skew
       exp: now + 600, // valid for 10 minutes (GitHub maximum)
-      iss: process.env.GITHUB_APP_ID,
+      iss: GITHUB_APP_ID,
     })
   ).toString('base64url');
 
   const signingInput = `${header}.${payload}`;
 
-  const rawKey =
-    process.env.GITHUB_APP_PRIVATE_KEY ||
-    process.env.VITE_GITHUB_APP_PRIVATE_KEY ||
-    '';
-  const pem = normalizePem(rawKey);
+  const pem = normalizePem(GITHUB_APP_PRIVATE_KEY);
 
   if (!pem) {
     throw new Error(
