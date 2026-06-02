@@ -1,67 +1,34 @@
+import { apiFetch } from '../../api/session';
 import {
-  GITHUB_APP_INSTALL_URL,
   GITHUB_INSTALL_URL,
+  GITHUB_INSTALL_REDIRECT_URL,
   GITHUB_DISCONNECT_URL,
 } from './constants.js';
 
-// ── Step 1: Open GitHub App install page ─────────────────────────────────────
+// Step 1: Open the BE redirect endpoint that knows the GitHub App slug.
 export function redirectToGitHubInstall() {
-  window.open(GITHUB_APP_INSTALL_URL, '_blank', 'noopener,noreferrer');
+  window.open(GITHUB_INSTALL_REDIRECT_URL, '_blank', 'noopener,noreferrer');
 }
 
-// ── Step 2: Exchange code + store installation ────────────────────────────────
-export async function exchangeGitHubCode(
-  code,
-  installationId,
-  supabaseAccessToken
-) {
-  const payload = JSON.stringify({ code, installation_id: installationId });
-
+// Step 2: Exchange code + store installation. Auth header injected by apiFetch.
+export async function exchangeGitHubCode(code, installationId) {
   try {
-    fetch(GITHUB_INSTALL_URL, {
+    apiFetch(GITHUB_INSTALL_URL, {
       method: 'POST',
       keepalive: true,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${supabaseAccessToken}`,
-      },
-      body: payload,
+      body: JSON.stringify({ code, installation_id: installationId }),
     }).catch(() => {});
-  } catch (e) {
-    (async () => {
-      try {
-        await fetch(GITHUB_INSTALL_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${supabaseAccessToken}`,
-          },
-          body: payload,
-        });
-      } catch (_err) {
-        // swallow
-      }
-    })();
+  } catch {
+    /* noop */
   }
-
-  return { githubUser: null, error: null };
+  return { error: null };
 }
 
-// ── Disconnect ────────────────────────────────────────────────────────────────
-export async function disconnectGitHub(supabaseAccessToken) {
-  const res = await fetch(GITHUB_DISCONNECT_URL, {
+// Disconnect — server reads the user from the access token in Authorization header.
+export async function disconnectGitHub() {
+  const { ok, error } = await apiFetch(GITHUB_DISCONNECT_URL, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${supabaseAccessToken}`,
-    },
   });
-
-  const data = await res.json();
-
-  if (!res.ok) {
-    return { error: data.error ?? 'Failed to disconnect GitHub.' };
-  }
-
+  if (!ok) return { error: error ?? 'Failed to disconnect GitHub.' };
   return { error: null };
 }

@@ -11,7 +11,7 @@ import { authenticateUser } from '../authentication.js';
 
 const api = new Hono();
 
-// GET /api/profile
+// ── Profile ─────────────────────────────────────
 api.get(
   '/profile',
   authenticateUser(async (c, user) => {
@@ -20,22 +20,21 @@ api.get(
   })
 );
 
-// PATCH /api/profile
 api.patch(
   '/profile',
   authenticateUser(async (c, user) => {
-    const body = await c.req.json();
+    const body = await c.req.json().catch(() => ({}));
     const result = await updateProfile(user.id, body);
     return c.json(result.body, result.status);
   })
 );
 
+// ── Platforms ───────────────────────────────────
 api.get(
   '/platforms',
   authenticateUser(async (c, user) => {
     const url = new URL(c.req.url, 'http://localhost');
     const queryParams = Object.fromEntries(url.searchParams.entries());
-
     const result = await fetchPlatforms(user.id, queryParams);
     return c.json(result.body, result.status);
   })
@@ -44,7 +43,7 @@ api.get(
 api.patch(
   '/platforms',
   authenticateUser(async (c, user) => {
-    const body = await c.req.json();
+    const body = await c.req.json().catch(() => ({}));
     const result = await updatePlatform(user.id, body);
     return c.json(result.body, result.status);
   })

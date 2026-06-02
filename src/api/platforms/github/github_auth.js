@@ -1,11 +1,14 @@
 import { generateGitHubAppJWT } from './utils.js';
+import {
+  GITHUB_CLIENT_ID,
+  GITHUB_CLIENT_SECRET,
+  SKY_DECK_APP_URL,
+} from '../../env_variables.js';
 
 export async function fetchGitHubTokens(code) {
-  const clientId = process.env.VITE_GITHUB_CLIENT_ID || '';
-  const clientSecret = process.env.VITE_GITHUB_CLIENT_SECRET || '';
-  const redirectUri = `${process.env.VITE_APP_URL}integrations/github/callback`;
+  const redirectUri = `${SKY_DECK_APP_URL}integrations/github/callback`;
 
-  const url = `https://github.com/login/oauth/access_token?client_id=${clientId}&client_secret=${clientSecret}&redirect_uri=${redirectUri}&code=${code}`;
+  const url = `https://github.com/login/oauth/access_token?client_id=${GITHUB_CLIENT_ID}&client_secret=${GITHUB_CLIENT_SECRET}&redirect_uri=${redirectUri}&code=${code}`;
   // debug logs removed
 
   const res = await fetch(url, {

@@ -12,8 +12,9 @@ try {
 export const handler = async (event) => {
   const { githubRoutes } =
     await import('../../src/api/platforms/github/routes.js');
-  const { accountRoutes } =
-    await import('../../src/api/account/routes.js');
+  const { sessionRoutes } = await import('../../src/api/session/routes.js');
+  const { accountRoutes } = await import('../../src/api/account/routes.js');
+  const { uploadRoutes } = await import('../../src/api/upload/routes.js');
 
   const app = new Hono().basePath('/api');
 
@@ -21,7 +22,9 @@ export const handler = async (event) => {
     c.json({ status: 'ok', ts: new Date().toISOString() })
   );
   app.route('/platforms/github', githubRoutes);
-  app.route('/', accountRoutes); // mount API routes at /api/*
+  app.route('/upload', uploadRoutes);
+  app.route('/', sessionRoutes); // /signup /signin /signout /forgot-password /reset-password /refresh /session
+  app.route('/', accountRoutes); // /profile /platforms ...
 
   app.notFound((c) => c.json({ error: 'Not found' }, 404));
 

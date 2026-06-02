@@ -28,7 +28,8 @@
         "npm:react@^18.3.1",
         "npm:supabase@^2.101.0",
         "npm:tailwindcss@^3.4.9",
-        "npm:vite@^5.4.0"
+        "npm:vite@^5.4.0",
+        "npm:ws@^8.13.0"
       ]
     }
   }

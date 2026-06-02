@@ -1,9 +1,15 @@
 import crypto from 'crypto';
+import {
+  FIREBASE_PROJECT_ID,
+  FIREBASE_CLIENT_EMAIL,
+  FIREBASE_PRIVATE_KEY,
+  FIREBASE_DATABASE_URL,
+} from '../api/env_variables';
 
 async function getFirebaseAccessToken() {
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
+  const projectId = FIREBASE_PROJECT_ID;
+  const clientEmail = FIREBASE_CLIENT_EMAIL;
+  let privateKey = FIREBASE_PRIVATE_KEY || '';
   if (!projectId || !clientEmail || !privateKey) {
     throw new Error('Missing Firebase service account environment variables');
   }
@@ -56,7 +62,7 @@ async function getFirebaseAccessToken() {
 }
 
 export async function pushWebhookEntry(rawPayload, headers = {}) {
-  const dbUrl = process.env.FIREBASE_DATABASE_URL; // optional override
+  const dbUrl = FIREBASE_DATABASE_URL; // optional override
   const { token, projectId } = await getFirebaseAccessToken();
   const baseUrl = dbUrl || `https://${projectId}.firebaseio.com`;
   const event = headers['X-GitHub-Event'] || 'unknown';

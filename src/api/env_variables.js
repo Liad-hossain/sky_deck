@@ -1,0 +1,69 @@
+// Server-only env loader. Never import this file from frontend code.
+// Priority: secrets.json (written by CI/CD) → process.env (local dev with .env).
+import { readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+// ── Load single secrets.json written by CI/CD ────────────────
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const SECRETS_PATH = resolve(
+  __dirname,
+  '../../netlify/functions/secrets/secrets.json'
+);
+
+let secrets = {};
+try {
+  secrets = JSON.parse(readFileSync(SECRETS_PATH, 'utf-8'));
+} catch {
+  // File doesn't exist in local dev — fall through to process.env.
+}
+
+// ── Resolve each key: secrets.json → process.env ─────────────
+const get = (key) => secrets[key] || process.env[key] || '';
+
+const SUPABASE_URL = get('SUPABASE_URL');
+const SUPABASE_ANON_KEY = get('SUPABASE_ANON_KEY');
+const SUPABASE_SERVICE_ROLE_KEY = get('SUPABASE_SERVICE_ROLE_KEY');
+
+const CLOUDINARY_CLOUD_NAME = get('CLOUDINARY_CLOUD_NAME');
+const CLOUDINARY_API_KEY = get('CLOUDINARY_API_KEY');
+const CLOUDINARY_API_SECRET = get('CLOUDINARY_API_SECRET');
+const CLOUDINARY_UPLOAD_PRESET = get('CLOUDINARY_UPLOAD_PRESET');
+
+const GITHUB_CLIENT_ID = get('GITHUB_CLIENT_ID');
+const GITHUB_CLIENT_SECRET = get('GITHUB_CLIENT_SECRET');
+const GITHUB_APP_SLUG = get('GITHUB_APP_SLUG');
+const GITHUB_APP_ID = get('GITHUB_APP_ID');
+const GITHUB_APP_PRIVATE_KEY = get('GITHUB_APP_PRIVATE_KEY');
+const GITHUB_WEBHOOK_SECRET = get('GITHUB_WEBHOOK_SECRET');
+
+const FIREBASE_PROJECT_ID = get('FIREBASE_PROJECT_ID');
+const FIREBASE_CLIENT_EMAIL = get('FIREBASE_CLIENT_EMAIL');
+const FIREBASE_PRIVATE_KEY = get('FIREBASE_PRIVATE_KEY');
+const FIREBASE_DATABASE_URL = get('FIREBASE_DATABASE_URL');
+
+const SKY_DECK_APP_URL = get('SKY_DECK_APP_URL');
+
+export {
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
+  SUPABASE_SERVICE_ROLE_KEY,
+  CLOUDINARY_API_KEY,
+  CLOUDINARY_API_SECRET,
+  CLOUDINARY_CLOUD_NAME,
+  CLOUDINARY_UPLOAD_PRESET,
+  GITHUB_CLIENT_ID,
+  GITHUB_CLIENT_SECRET,
+  GITHUB_APP_SLUG,
+  GITHUB_APP_ID,
+  GITHUB_APP_PRIVATE_KEY,
+  GITHUB_WEBHOOK_SECRET,
+  FIREBASE_PROJECT_ID,
+  FIREBASE_CLIENT_EMAIL,
+  FIREBASE_PRIVATE_KEY,
+  FIREBASE_DATABASE_URL,
+  SKY_DECK_APP_URL,
+};

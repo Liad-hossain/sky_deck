@@ -6,10 +6,11 @@ import {
   fetchGitHubInstallationDetails,
 } from './github_auth.js';
 import { pushWebhookEntry } from '../../../redis/client.js';
+import { GITHUB_WEBHOOK_SECRET } from '../../env_variables.js';
 
 async function verifyGitHubWebhook(rawPayload, headers) {
   const hook_id = headers['X-GitHub-Hook-ID'] || 'unknown';
-  const secret = process.env.VITE_GITHUB_WEBHOOK_SECRET || null;
+  const secret = GITHUB_WEBHOOK_SECRET;
   if (!secret) {
     console.log(
       `Could not process webhook for hook_id: ${hook_id}. Webhook secret not configured.`
@@ -50,6 +51,7 @@ async function verifyGitHubWebhook(rawPayload, headers) {
 }
 
 export async function handleWebhookPayload(rawPayload, headers = {}) {
+  console.log(`GitHub webhook payload: ${rawPayload}`);
   const isValid = await verifyGitHubWebhook(rawPayload, headers);
   if (!isValid) {
     console.log(`Invalid GitHub webhook payload for headers:`, headers);
@@ -107,6 +109,7 @@ export async function handleInstallation(userId, code, installation_id) {
   );
 
   if (dbErr) {
+    console.log('Error saving GitHub platform connection to DB:', dbErr);
     const appJWT = generateGitHubAppJWT();
     await fetch(`https://api.github.com/app/installations/${installation_id}`, {
       method: 'DELETE',
@@ -141,6 +144,10 @@ export async function handleDisconnect(installationId) {
 
   if (!uninstallRes.ok && uninstallRes.status !== 204) {
     const body = await uninstallRes.json().catch(() => ({}));
+    console.log(
+      `Failed to uninstall GitHub App for installationId ${installationId}. Status: ${uninstallRes.status}. Response body:`,
+      body
+    );
     return {
       success: false,
       error: body.message ?? 'Failed to uninstall GitHub App.',

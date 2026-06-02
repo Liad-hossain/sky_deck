@@ -19,3 +19,6 @@ Thumbs.db
 
 # Local Netlify folder
 .netlify
+
+# Secrets injected at build time (never commit)
+netlify/functions/secrets/

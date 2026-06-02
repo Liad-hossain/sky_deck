@@ -28,7 +28,6 @@ import Navbar from '../components/Navbar';
 import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../lib/supabase';
 const container = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.1 } },
@@ -107,6 +106,8 @@ export default function Dashboard() {
     disconnectPlatformById,
     deletePlatformById,
     connectPlatform,
+    getProfile,
+    getPlatforms,
   } = useAuth();
   const [profile, setProfile] = useState(null);
   const [connectedPlatforms, setConnectedPlatforms] = useState([]);
@@ -149,27 +150,15 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
-    // Fetch profile and platforms from server APIs
+    // Fetch profile and platforms via backend APIs (auth handled by context).
     (async () => {
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        const [profRes, platRes] = await Promise.all([
-          fetch('/api/profile', {
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          }),
-          fetch('/api/platforms', {
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          }),
+        const [{ profile }, { platforms }] = await Promise.all([
+          getProfile(),
+          getPlatforms(),
         ]);
-
-        const profData = await profRes.json().catch(() => ({}));
-        const platData = await platRes.json().catch(() => ({}));
-
-        setProfile(profData.profile ?? null);
-        setConnectedPlatforms(platData.platforms ?? []);
+        setProfile(profile ?? null);
+        setConnectedPlatforms(platforms ?? []);
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error('Error loading Dashboard data:', err);
