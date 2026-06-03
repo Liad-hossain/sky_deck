@@ -1,40 +1,58 @@
 import { Hono } from 'hono';
-import { githubRoutes } from '../../src/api/platforms/github/routes.js';
-import { sessionRoutes } from '../../src/api/session/routes.js';
-import { accountRoutes } from '../../src/api/account/routes.js';
-import { uploadRoutes } from '../../src/api/upload/routes.js';
-import * as envVars from '../../src/api/env_variables.js';
 
-const app = new Hono().basePath('/api');
+console.log('[urls] module loaded, cwd=', process.cwd());
 
-app.get('/health', (c) =>
-  c.json({ status: 'ok', ts: new Date().toISOString() })
-);
+let appPromise = null;
 
-app.get('/health/secrets', (c) => {
-  const summary = {};
-  for (const [k, v] of Object.entries(envVars)) {
-    if (typeof v !== 'string') continue;
-    summary[k] = v
-      ? {
-          present: true,
-          length: v.length,
-          peek: `${v.slice(0, 4)}…${v.slice(-4)}`,
-        }
-      : { present: false };
-  }
-  return c.json({ cwd: process.cwd(), summary });
-});
+async function buildApp() {
+  const [
+    { githubRoutes },
+    { sessionRoutes },
+    { accountRoutes },
+    { uploadRoutes },
+    envVars,
+  ] = await Promise.all([
+    import('../../src/api/platforms/github/routes.js'),
+    import('../../src/api/session/routes.js'),
+    import('../../src/api/account/routes.js'),
+    import('../../src/api/upload/routes.js'),
+    import('../../src/api/env_variables.js'),
+  ]);
 
-app.route('/platforms/github', githubRoutes);
-app.route('/upload', uploadRoutes);
-app.route('/', sessionRoutes);
-app.route('/account', accountRoutes);
+  const app = new Hono().basePath('/api');
 
-app.notFound((c) => c.json({ error: 'Not found' }, 404));
+  app.get('/health', (c) =>
+    c.json({ status: 'ok', ts: new Date().toISOString() })
+  );
+
+  app.get('/health/secrets', (c) => {
+    const summary = {};
+    for (const [k, v] of Object.entries(envVars)) {
+      if (typeof v !== 'string') continue;
+      summary[k] = v
+        ? {
+            present: true,
+            length: v.length,
+            peek: `${v.slice(0, 4)}…${v.slice(-4)}`,
+          }
+        : { present: false };
+    }
+    return c.json({ cwd: process.cwd(), summary });
+  });
+
+  app.route('/platforms/github', githubRoutes);
+  app.route('/upload', uploadRoutes);
+  app.route('/', sessionRoutes);
+  app.route('/account', accountRoutes);
+  app.notFound((c) => c.json({ error: 'Not found' }, 404));
+  return app;
+}
 
 export const handler = async (event) => {
   try {
+    if (!appPromise) appPromise = buildApp();
+    const app = await appPromise;
+
     const {
       httpMethod,
       path,
@@ -73,7 +91,8 @@ export const handler = async (event) => {
       body: await response.text(),
     };
   } catch (err) {
-    console.error('[urls] handler crashed:', err);
+    appPromise = null;
+    console.error('[urls] handler crashed:', err?.stack ?? err);
     return {
       statusCode: 500,
       headers: { 'Content-Type': 'application/json' },
