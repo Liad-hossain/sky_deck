@@ -65,6 +65,11 @@ export async function apiFetch(path, options = {}) {
     const fresh = await refreshSession();
     if (fresh) {
       res = await fetch(path, { ...options, headers: buildHeaders(fresh) });
+    } else {
+      // Refresh failed — force signout
+      clearSession();
+      window.location.href = '/signin';
+      return { ok: false, status: 401, data: null, error: 'Session expired' };
     }
   }
 

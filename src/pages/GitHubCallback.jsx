@@ -45,11 +45,15 @@ export default function GitHubCallback() {
 
     async function complete() {
       try {
-        // apiFetch in exchangeGitHubCode injects the auth header from local session.
-        exchangeGitHubCode(code, installationId).catch(() => {});
+        const result = await exchangeGitHubCode(code, installationId);
+        if (result.error) {
+          setStatus('error');
+          setMessage(result.error);
+          return;
+        }
 
         setStatus('success');
-        toast.success('GitHub connection in progress.');
+        toast.success('GitHub connected successfully!');
 
         setTimeout(() => navigate('/dashboard'), 1500);
       } catch (e) {

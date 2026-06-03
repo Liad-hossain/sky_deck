@@ -12,16 +12,12 @@ export function redirectToGitHubInstall() {
 
 // Step 2: Exchange code + store installation. Auth header injected by apiFetch.
 export async function exchangeGitHubCode(code, installationId) {
-  try {
-    apiFetch(GITHUB_INSTALL_URL, {
-      method: 'POST',
-      keepalive: true,
-      body: JSON.stringify({ code, installation_id: installationId }),
-    }).catch(() => {});
-  } catch {
-    /* noop */
-  }
-  return { error: null };
+  const { ok, data, error } = await apiFetch(GITHUB_INSTALL_URL, {
+    method: 'POST',
+    body: JSON.stringify({ code, installation_id: installationId }),
+  });
+  if (!ok) return { error: error || 'Installation failed' };
+  return { data, error: null };
 }
 
 // Disconnect — server reads the user from the access token in Authorization header.
