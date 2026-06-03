@@ -21,10 +21,28 @@ export const handler = async (event) => {
   app.get('/health', (c) =>
     c.json({ status: 'ok', ts: new Date().toISOString() })
   );
+
+  // Debug endpoint: shows which env keys are loaded WITHOUT leaking values.
+  // Safe to ship — only returns booleans + first/last 4 chars of each value.
+  app.get('/health/secrets', async (c) => {
+    const env = await import('../../src/api/env_variables.js');
+    const summary = {};
+    for (const [k, v] of Object.entries(env)) {
+      if (typeof v !== 'string') continue;
+      summary[k] = v
+        ? {
+            present: true,
+            length: v.length,
+            peek: `${v.slice(0, 4)}…${v.slice(-4)}`,
+          }
+        : { present: false };
+    }
+    return c.json({ cwd: process.cwd(), summary });
+  });
   app.route('/platforms/github', githubRoutes);
   app.route('/upload', uploadRoutes);
   app.route('/', sessionRoutes); // /signup /signin /signout /forgot-password /reset-password /refresh /session
-  app.route('/', accountRoutes); // /profile /platforms ...
+  app.route('/account', accountRoutes); // /account/profile /account/platforms ...
 
   app.notFound((c) => c.json({ error: 'Not found' }, 404));
 

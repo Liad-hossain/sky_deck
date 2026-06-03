@@ -1,24 +1,42 @@
 // Server-only env loader. Never import this file from frontend code.
 // Priority: secrets.json (written by CI/CD) → process.env (local dev with .env).
 import { readFileSync } from 'fs';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { resolve } from 'path';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 // ── Load single secrets.json written by CI/CD ────────────────
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const SECRETS_PATH = resolve(
-  __dirname,
-  '../../netlify/functions/secrets/secrets.json'
-);
+// Netlify bundles functions and may run them from a subdirectory, so we try
+// several candidate paths. The repo path is added via `included_files` in
+// netlify.toml so the JSON ships alongside the bundled function.
+const CANDIDATE_PATHS = [
+  resolve(process.cwd(), 'netlify/functions/secrets/secrets.json'),
+  resolve(process.cwd(), '../netlify/functions/secrets/secrets.json'),
+  resolve(process.cwd(), '../../netlify/functions/secrets/secrets.json'),
+  // Netlify production layout — repo root is mirrored under /var/task.
+  '/var/task/netlify/functions/secrets/secrets.json',
+];
 
 let secrets = {};
-try {
-  secrets = JSON.parse(readFileSync(SECRETS_PATH, 'utf-8'));
-} catch {
-  // File doesn't exist in local dev — fall through to process.env.
+let loadedFrom = null;
+for (const p of CANDIDATE_PATHS) {
+  try {
+    secrets = JSON.parse(readFileSync(p, 'utf-8'));
+    loadedFrom = p;
+    break;
+  } catch {
+    // try next
+  }
+}
+if (process.env.SKY_DECK_DEBUG_SECRETS === '1') {
+  // eslint-disable-next-line no-console
+  console.log(
+    '[env] secrets loaded from:',
+    loadedFrom ?? '(none — using process.env)'
+  );
+  // eslint-disable-next-line no-console
+  console.log('[env] secret keys present:', Object.keys(secrets));
 }
 
 // ── Resolve each key: secrets.json → process.env ─────────────
