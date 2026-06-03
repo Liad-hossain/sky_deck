@@ -73,6 +73,9 @@ export async function handleWebhookPayload(rawPayload, headers = {}) {
 }
 
 export async function handleInstallation(userId, code, installation_id) {
+  console.log(
+    `Handling GitHub installation for user ${userId} with installation_id ${installation_id}`
+  );
   try {
     if (!installation_id) {
       return { data: null, error: 'Missing installation_id', status: 400 };

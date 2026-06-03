@@ -66,9 +66,8 @@ export async function apiFetch(path, options = {}) {
     if (fresh) {
       res = await fetch(path, { ...options, headers: buildHeaders(fresh) });
     } else {
-      // Refresh failed — force signout
+      // Refresh failed — clear stale session; AuthContext will redirect via ProtectedRoute
       clearSession();
-      window.location.href = '/signin';
       return { ok: false, status: 401, data: null, error: 'Session expired' };
     }
   }

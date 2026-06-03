@@ -108,5 +108,5 @@ export async function refreshSession(body) {
 }
 
 export async function getSessionUser(user) {
-  return { status: 200, body: { user } };
+  return { status: 200, body: { data: { user } } };
 }

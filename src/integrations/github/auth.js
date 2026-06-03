@@ -16,7 +16,10 @@ export async function exchangeGitHubCode(code, installationId) {
     method: 'POST',
     body: JSON.stringify({ code, installation_id: installationId }),
   });
-  if (!ok) return { error: error || 'Installation failed' };
+  if (!ok) {
+    console.log('GitHub installation error:', error);
+    return { error: error || 'Installation failed' };
+  }
   return { data, error: null };
 }
 
