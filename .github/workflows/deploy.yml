@@ -50,7 +50,7 @@ jobs:
       - name: Set Netlify env vars
         run: |
           npm install -g netlify-cli
-          netlify env:import netlify/functions/secrets/secrets.json --replace
+          netlify env:import --replace-existing netlify/functions/secrets/secrets.json
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
