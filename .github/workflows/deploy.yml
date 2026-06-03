@@ -20,7 +20,11 @@ jobs:
       # ── Write .env file for Netlify env:import ──
       - name: Write .env for Netlify
         run: |
-          cat > .env.netlify <<'DOTENV'
+          # Base64-encode multi-line secrets so they survive .env format
+          GH_KEY_B64=$(printf '%s' "${{ secrets.GH_APP_PRIVATE_KEY }}" | base64 -w 0)
+          FB_KEY_B64=$(printf '%s' "${{ secrets.FIREBASE_PRIVATE_KEY }}" | base64 -w 0)
+
+          cat > .env.netlify <<EOF
           SUPABASE_URL=${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -32,14 +36,14 @@ jobs:
           GITHUB_CLIENT_SECRET=${{ secrets.GH_APP_CLIENT_SECRET }}
           GITHUB_APP_SLUG=${{ secrets.GH_APP_SLUG }}
           GITHUB_APP_ID=${{ secrets.GH_APP_ID }}
-          GITHUB_APP_PRIVATE_KEY=${{ secrets.GH_APP_PRIVATE_KEY }}
+          GITHUB_APP_PRIVATE_KEY=${GH_KEY_B64}
           GITHUB_WEBHOOK_SECRET=${{ secrets.GH_APP_WEBHOOK_SECRET }}
           FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
           FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}
-          FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}
+          FIREBASE_PRIVATE_KEY=${FB_KEY_B64}
           FIREBASE_DATABASE_URL=${{ secrets.FIREBASE_DATABASE_URL }}
           SKY_DECK_APP_URL=${{ secrets.SKY_DECK_APP_URL }}
-          DOTENV
+          EOF
           # Remove leading whitespace from heredoc indentation
           sed -i 's/^[[:space:]]*//' .env.netlify
 
