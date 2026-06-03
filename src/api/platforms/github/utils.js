@@ -55,7 +55,7 @@ export function generateGitHubAppJWT() {
     keyObject = createPrivateKey({ key: pem, format: 'pem' });
   } catch (e) {
     try {
-      const der = Buffer.from(rawKey, 'base64');
+      const der = Buffer.from(pem, 'base64');
       keyObject = createPrivateKey({ key: der, format: 'der', type: 'pkcs8' });
     } catch (e2) {
       throw new Error(
