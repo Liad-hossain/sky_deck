@@ -10,7 +10,7 @@ import { GITHUB_WEBHOOK_SECRET } from '../../env_variables.js';
 
 async function verifyGitHubWebhook(rawPayload, headers) {
   try {
-    const hook_id = headers['X-GitHub-Hook-ID'] || 'unknown';
+    const hook_id = headers['x-github-hook-id'] || 'unknown';
     const secret = GITHUB_WEBHOOK_SECRET;
     if (!secret) {
       console.log(
@@ -30,9 +30,10 @@ async function verifyGitHubWebhook(rawPayload, headers) {
     const crypto = await import('crypto');
     const hmac = crypto
       .createHmac('sha256', secret)
-      .update(rawPayload)
+      .update(JSON.stringify(rawPayload))
       .digest('hex');
     const expected = `sha256=${hmac}`;
+    console.log('Expected signature for hook_id', hook_id, 'is', expected);
 
     const a = Buffer.from(expected);
     const b = Buffer.from(sigHeader);

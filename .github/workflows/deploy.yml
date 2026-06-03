@@ -17,51 +17,42 @@ jobs:
 
       - run: npm ci
 
-      # ── Write .env file for Netlify env:import ──
-      - name: Write .env for Netlify
+      # ── Inject secrets as a JS module (bundled at build time) ──
+      - name: Generate _secrets.js
         run: |
-          # Base64-encode multi-line secrets so they survive .env format
           GH_KEY_B64=$(printf '%s' "${{ secrets.GH_APP_PRIVATE_KEY }}" | base64 -w 0)
           FB_KEY_B64=$(printf '%s' "${{ secrets.FIREBASE_PRIVATE_KEY }}" | base64 -w 0)
 
-          cat > .env.netlify <<EOF
-          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          CLOUDINARY_CLOUD_NAME=${{ secrets.CLOUDINARY_CLOUD_NAME }}
-          CLOUDINARY_API_KEY=${{ secrets.CLOUDINARY_API_KEY }}
-          CLOUDINARY_API_SECRET=${{ secrets.CLOUDINARY_API_SECRET }}
-          CLOUDINARY_UPLOAD_PRESET=${{ secrets.CLOUDINARY_UPLOAD_PRESET }}
-          GITHUB_CLIENT_ID=${{ secrets.GH_APP_CLIENT_ID }}
-          GITHUB_CLIENT_SECRET=${{ secrets.GH_APP_CLIENT_SECRET }}
-          GITHUB_APP_SLUG=${{ secrets.GH_APP_SLUG }}
-          GITHUB_APP_ID=${{ secrets.GH_APP_ID }}
-          GITHUB_APP_PRIVATE_KEY=${GH_KEY_B64}
-          GITHUB_WEBHOOK_SECRET=${{ secrets.GH_APP_WEBHOOK_SECRET }}
-          FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
-          FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}
-          FIREBASE_PRIVATE_KEY=${FB_KEY_B64}
-          FIREBASE_DATABASE_URL=${{ secrets.FIREBASE_DATABASE_URL }}
-          SKY_DECK_APP_URL=${{ secrets.SKY_DECK_APP_URL }}
+          cat > src/api/_secrets.js <<EOF
+          export default {
+            SUPABASE_URL: "${{ secrets.SUPABASE_URL }}",
+            SUPABASE_ANON_KEY: "${{ secrets.SUPABASE_ANON_KEY }}",
+            SUPABASE_SERVICE_ROLE_KEY: "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}",
+            CLOUDINARY_CLOUD_NAME: "${{ secrets.CLOUDINARY_CLOUD_NAME }}",
+            CLOUDINARY_API_KEY: "${{ secrets.CLOUDINARY_API_KEY }}",
+            CLOUDINARY_API_SECRET: "${{ secrets.CLOUDINARY_API_SECRET }}",
+            CLOUDINARY_UPLOAD_PRESET: "${{ secrets.CLOUDINARY_UPLOAD_PRESET }}",
+            GITHUB_CLIENT_ID: "${{ secrets.GH_APP_CLIENT_ID }}",
+            GITHUB_CLIENT_SECRET: "${{ secrets.GH_APP_CLIENT_SECRET }}",
+            GITHUB_APP_SLUG: "${{ secrets.GH_APP_SLUG }}",
+            GITHUB_APP_ID: "${{ secrets.GH_APP_ID }}",
+            GITHUB_APP_PRIVATE_KEY: "${GH_KEY_B64}",
+            GITHUB_WEBHOOK_SECRET: "${{ secrets.GH_APP_WEBHOOK_SECRET }}",
+            FIREBASE_PROJECT_ID: "${{ secrets.FIREBASE_PROJECT_ID }}",
+            FIREBASE_CLIENT_EMAIL: "${{ secrets.FIREBASE_CLIENT_EMAIL }}",
+            FIREBASE_PRIVATE_KEY: "${FB_KEY_B64}",
+            FIREBASE_DATABASE_URL: "${{ secrets.FIREBASE_DATABASE_URL }}",
+            SKY_DECK_APP_URL: "${{ secrets.SKY_DECK_APP_URL }}"
+          };
           EOF
-          # Remove leading whitespace from heredoc indentation
-          sed -i 's/^[[:space:]]*//' .env.netlify
+          sed -i 's/^[[:space:]]*//' src/api/_secrets.js
 
       - run: npm run build
 
-      # ── Set env vars on the Netlify site (so functions can read process.env) ──
-      - name: Set Netlify env vars
-        run: |
-          npm install -g netlify-cli
-          netlify env:import --replace-existing .env.netlify
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-
-      # ── Deploy using Netlify CLI (respects netlify.toml fully) ──
+      # ── Deploy using Netlify CLI ──
       - name: Deploy to Netlify
         run: |
-          netlify deploy --prod --dir=dist --functions=netlify/functions
+          npx netlify-cli deploy --prod --dir=dist --functions=netlify/functions
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
