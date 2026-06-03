@@ -1,11 +1,12 @@
 [build]
+  # Build is handled by GitHub Actions; skip Netlify's own CI.
+  ignore = "exit 0"
   command = "npm run build"
   publish = "dist"
   functions = "netlify/functions"
 
-# Bundle the runtime secrets file alongside the function code.
 [functions]
-  included_files = ["netlify/functions/secrets/secrets.json"]
+  node_bundler = "esbuild"
 
 # ── API: rewrite /api/* → single Hono router function ────────
 [[redirects]]

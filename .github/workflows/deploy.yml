@@ -17,7 +17,7 @@ jobs:
 
       - run: npm ci
 
-      # ── Write all secrets into a single JSON file ──
+      # ── Write secrets.json into the functions directory ──
       - name: Write secrets.json
         run: |
           mkdir -p netlify/functions/secrets
@@ -46,13 +46,19 @@ jobs:
 
       - run: npm run build
 
+      # ── Set env vars on the Netlify site (so functions can read process.env) ──
+      - name: Set Netlify env vars
+        run: |
+          npm install -g netlify-cli
+          netlify env:import netlify/functions/secrets/secrets.json --replace
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+
+      # ── Deploy using Netlify CLI (respects netlify.toml fully) ──
       - name: Deploy to Netlify
-        uses: nwtgck/actions-netlify@v3
-        with:
-          publish-dir: ./dist
-          functions-dir: ./netlify/functions
-          netlify-config-path: ./netlify.toml
-          production-deploy: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          netlify deploy --prod --dir=dist --functions=netlify/functions
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
