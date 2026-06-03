@@ -51,7 +51,7 @@ async function verifyGitHubWebhook(rawPayload, headers) {
 }
 
 export async function handleWebhookPayload(rawPayload, headers = {}) {
-  console.log(`GitHub webhook payload: ${rawPayload}`);
+  console.log(`GitHub webhook payload: ${JSON.stringify(rawPayload)}`);
   const isValid = await verifyGitHubWebhook(rawPayload, headers);
   if (!isValid) {
     console.log(`Invalid GitHub webhook payload for headers:`, headers);

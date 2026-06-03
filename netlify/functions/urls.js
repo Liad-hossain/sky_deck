@@ -25,21 +25,6 @@ async function buildApp() {
     c.json({ status: 'ok', ts: new Date().toISOString() })
   );
 
-  app.get('/health/secrets', (c) => {
-    const summary = {};
-    for (const [k, v] of Object.entries(envVars)) {
-      if (typeof v !== 'string') continue;
-      summary[k] = v
-        ? {
-            present: true,
-            length: v.length,
-            peek: `${v.slice(0, 4)}…${v.slice(-4)}`,
-          }
-        : { present: false };
-    }
-    return c.json({ cwd: process.cwd(), summary });
-  });
-
   app.route('/platforms/github', githubRoutes);
   app.route('/upload', uploadRoutes);
   app.route('/', sessionRoutes);

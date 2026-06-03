@@ -36,12 +36,12 @@ github.post(
 // ── POST /api/platforms/github/webhook ───────────────────────────────────────
 github.post('/webhook', async (c) => {
   try {
-    const raw = await c.req.text();
+    const payload = await c.req.json();
     const headersObj = {};
-    for (const [k, v] of c.req.headers) {
+    c.req.raw.headers.forEach((v, k) => {
       headersObj[k] = v;
-    }
-    await handleWebhookPayload(raw, headersObj);
+    });
+    await handleWebhookPayload(payload, headersObj);
     return c.json({ success: true });
   } catch (e) {
     console.error('Webhook handler error:', e);
