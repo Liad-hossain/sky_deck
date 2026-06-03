@@ -1,58 +1,58 @@
 name: Deploy to Netlify
 
 on:
-    push:
-        branches: [main]
+  push:
+    branches: [main]
 
 jobs:
-    deploy:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-            - uses: actions/setup-node@v4
-              with:
-                  node-version: 20
-                  cache: npm
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
 
-            - run: npm ci
+      - run: npm ci
 
-            # ── Write all secrets into a single JSON file ──
-            - name: Write secrets.json
-              run: |
-                  mkdir -p netlify/functions/secrets
-                  cat > netlify/functions/secrets/secrets.json <<SECRETS
-                  {
-                    "SUPABASE_URL": "${{ secrets.SUPABASE_URL }}",
-                    "SUPABASE_ANON_KEY": "${{ secrets.SUPABASE_ANON_KEY }}",
-                    "SUPABASE_SERVICE_ROLE_KEY": "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}",
-                    "CLOUDINARY_CLOUD_NAME": "${{ secrets.CLOUDINARY_CLOUD_NAME }}",
-                    "CLOUDINARY_API_KEY": "${{ secrets.CLOUDINARY_API_KEY }}",
-                    "CLOUDINARY_API_SECRET": "${{ secrets.CLOUDINARY_API_SECRET }}",
-                    "CLOUDINARY_UPLOAD_PRESET": "${{ secrets.CLOUDINARY_UPLOAD_PRESET }}",
-                    "GITHUB_CLIENT_ID": "${{ secrets.GH_APP_CLIENT_ID }}",
-                    "GITHUB_CLIENT_SECRET": "${{ secrets.GH_APP_CLIENT_SECRET }}",
-                    "GITHUB_APP_SLUG": "${{ secrets.GH_APP_SLUG }}",
-                    "GITHUB_APP_ID": "${{ secrets.GH_APP_ID }}",
-                    "GITHUB_APP_PRIVATE_KEY": "${{ secrets.GH_APP_PRIVATE_KEY }}",
-                    "GITHUB_WEBHOOK_SECRET": "${{ secrets.GH_APP_WEBHOOK_SECRET }}",
-                    "FIREBASE_PROJECT_ID": "${{ secrets.FIREBASE_PROJECT_ID }}",
-                    "FIREBASE_CLIENT_EMAIL": "${{ secrets.FIREBASE_CLIENT_EMAIL }}",
-                    "FIREBASE_PRIVATE_KEY": "${{ secrets.FIREBASE_PRIVATE_KEY }}",
-                    "FIREBASE_DATABASE_URL": "${{ secrets.FIREBASE_DATABASE_URL }}",
-                    "SKY_DECK_APP_URL": "${{ secrets.SKY_DECK_APP_URL }}"
-                  }
-                  SECRETS
+      # ── Write all secrets into a single JSON file ──
+      - name: Write secrets.json
+        run: |
+          mkdir -p netlify/functions/secrets
+          cat > netlify/functions/secrets/secrets.json <<SECRETS
+          {
+            "SUPABASE_URL": "${{ secrets.SUPABASE_URL }}",
+            "SUPABASE_ANON_KEY": "${{ secrets.SUPABASE_ANON_KEY }}",
+            "SUPABASE_SERVICE_ROLE_KEY": "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}",
+            "CLOUDINARY_CLOUD_NAME": "${{ secrets.CLOUDINARY_CLOUD_NAME }}",
+            "CLOUDINARY_API_KEY": "${{ secrets.CLOUDINARY_API_KEY }}",
+            "CLOUDINARY_API_SECRET": "${{ secrets.CLOUDINARY_API_SECRET }}",
+            "CLOUDINARY_UPLOAD_PRESET": "${{ secrets.CLOUDINARY_UPLOAD_PRESET }}",
+            "GITHUB_CLIENT_ID": "${{ secrets.GH_APP_CLIENT_ID }}",
+            "GITHUB_CLIENT_SECRET": "${{ secrets.GH_APP_CLIENT_SECRET }}",
+            "GITHUB_APP_SLUG": "${{ secrets.GH_APP_SLUG }}",
+            "GITHUB_APP_ID": "${{ secrets.GH_APP_ID }}",
+            "GITHUB_APP_PRIVATE_KEY": "${{ secrets.GH_APP_PRIVATE_KEY }}",
+            "GITHUB_WEBHOOK_SECRET": "${{ secrets.GH_APP_WEBHOOK_SECRET }}",
+            "FIREBASE_PROJECT_ID": "${{ secrets.FIREBASE_PROJECT_ID }}",
+            "FIREBASE_CLIENT_EMAIL": "${{ secrets.FIREBASE_CLIENT_EMAIL }}",
+            "FIREBASE_PRIVATE_KEY": "${{ secrets.FIREBASE_PRIVATE_KEY }}",
+            "FIREBASE_DATABASE_URL": "${{ secrets.FIREBASE_DATABASE_URL }}",
+            "SKY_DECK_APP_URL": "${{ secrets.SKY_DECK_APP_URL }}"
+          }
+          SECRETS
 
-            - run: npm run build
+      - run: npm run build
 
-            - name: Deploy to Netlify
-              uses: nwtgck/actions-netlify@v3
-              with:
-                  publish-dir: ./dist
-                  functions-dir: ./netlify/functions
-                  netlify-config-path: ./netlify.toml
-                  production-deploy: ${{ github.ref == 'refs/heads/main' }}
-              env:
-                  NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-                  NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@v3
+        with:
+          publish-dir: ./dist
+          functions-dir: ./netlify/functions
+          netlify-config-path: ./netlify.toml
+          production-deploy: ${{ github.ref == 'refs/heads/main' }}
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
