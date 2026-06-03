@@ -3,6 +3,10 @@
   publish = "dist"
   functions = "netlify/functions"
 
+# Bundle the runtime secrets file alongside the function code.
+[functions]
+  included_files = ["netlify/functions/secrets/secrets.json"]
+
 # ── API: rewrite /api/* → single Hono router function ────────
 [[redirects]]
   from = "/api/*"

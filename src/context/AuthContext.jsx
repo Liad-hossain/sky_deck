@@ -92,14 +92,14 @@ export function AuthProvider({ children }) {
   };
 
   const getProfile = async () => {
-    const { ok, data, error } = await apiFetch('/api/profile');
+    const { ok, data, error } = await apiFetch('/api/account/profile');
     if (!ok) return { profile: null, error: { message: error } };
     // BE returns { data: profile } or { profile }; accept either.
     return { profile: data?.profile ?? data?.data ?? null, error: null };
   };
 
   const updateProfile = async (updates) => {
-    const { ok, data, error } = await apiFetch('/api/profile', {
+    const { ok, data, error } = await apiFetch('/api/account/profile', {
       method: 'PATCH',
       body: JSON.stringify(updates),
     });
@@ -122,7 +122,7 @@ export function AuthProvider({ children }) {
   };
 
   const getPlatforms = async () => {
-    const { ok, data, error } = await apiFetch('/api/platforms');
+    const { ok, data, error } = await apiFetch('/api/account/platforms');
     if (!ok) return { platforms: [], error: { message: error } };
     return { platforms: data?.platforms ?? [], error: null };
   };
@@ -132,7 +132,7 @@ export function AuthProvider({ children }) {
   };
 
   const updatePlatformTitle = async (platformId, title) => {
-    const { ok, data, error } = await apiFetch('/api/platforms', {
+    const { ok, data, error } = await apiFetch('/api/account/platforms', {
       method: 'PATCH',
       body: JSON.stringify({ platformId, title }),
     });
@@ -142,7 +142,7 @@ export function AuthProvider({ children }) {
 
   const disconnectPlatformById = async (platformId) => {
     const { ok, error } = await apiFetch(
-      `/api/platforms/disconnect/${platformId}`,
+      `/api/account/platforms/disconnect/${platformId}`,
       { method: 'POST' }
     );
     return ok ? { error: null } : { error: { message: error } };
@@ -150,7 +150,7 @@ export function AuthProvider({ children }) {
 
   const deletePlatformById = async (platformId) => {
     const { ok, error } = await apiFetch(
-      `/api/platforms/delete/${platformId}`,
+      `/api/account/platforms/delete/${platformId}`,
       { method: 'DELETE' }
     );
     return ok ? { error: null } : { error: { message: error } };

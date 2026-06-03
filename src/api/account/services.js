@@ -32,13 +32,14 @@ export async function updateProfile(userId, body) {
   try {
     const { error } = await updateProfileFields(userId, updates);
     if (error) {
+      console.log('Error updating profile:', error);
       return {
         status: 500,
         body: { error: 'Something went wrong while updating profile' },
       };
     }
   } catch (e) {
-    console.log('Error updating profile:', e);
+    console.log('Exception Error updating profile:', e);
     return {
       status: 500,
       body: { error: 'Something went wrong while updating profile' },
@@ -78,13 +79,15 @@ export async function updatePlatform(userId, { platformId, title } = {}) {
 
   try {
     const { error } = await updatePlatformById(userId, platformId, { title });
-    if (error)
+    if (error) {
+      console.log('Error updating platform:', error);
       return {
         status: 500,
         body: { error: 'Something went wrong while updating platform' },
       };
+    }
   } catch (e) {
-    console.log('Error updating platform:', e);
+    console.log('Exception Error updating platform:', e);
     return {
       status: 500,
       body: { error: 'Something went wrong while updating platform' },
@@ -148,11 +151,13 @@ export async function deletePlatform(userId, platformId) {
 
   try {
     const { error } = await archivePlatformById(userId, id);
-    if (error)
+    if (error) {
+      console.log('Error archiving platform:', error);
       return {
         status: 500,
         body: { error: 'Something went wrong while deleting platform' },
       };
+    }
   } catch (e) {
     console.log('Exception while deleting platform:', e);
     return {

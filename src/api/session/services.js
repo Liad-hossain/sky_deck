@@ -15,8 +15,10 @@ export async function signupUser(body) {
     return { status: 400, body: { error: 'Email or password is missing.' } };
 
   const { data, error } = await authSignup(email, password);
-  if (error)
-    return { status: 400, body: { error: error.message ?? 'Signup failed' } };
+  if (error) {
+    console.log('Signup error:', error);
+    return { status: 500, body: { error: error.message ?? 'Signup failed' } };
+  }
 
   return { status: 200, body: { data } };
 }
@@ -28,8 +30,10 @@ export async function signinUser(body) {
     return { status: 400, body: { error: 'Email or password is missing.' } };
 
   const { data, error } = await authSignin(email, password);
-  if (error)
-    return { status: 401, body: { error: error.message ?? 'Signin failed' } };
+  if (error) {
+    console.log('Signin error:', error);
+    return { status: 500, body: { error: error.message ?? 'Signin failed' } };
+  }
 
   return {
     status: 200,
@@ -39,7 +43,10 @@ export async function signinUser(body) {
 
 export async function signoutUser(accessToken) {
   const { error } = await authSignout(accessToken);
-  if (error) return { status: 400, body: { error } };
+  if (error) {
+    console.log('Signout error:', error);
+    return { status: 500, body: { error: error.message ?? 'Signout failed' } };
+  }
   return { status: 200, body: { success: true } };
 }
 
@@ -48,11 +55,13 @@ export async function forgotPasswordRequest(body) {
   if (!email) return { status: 400, body: { error: 'Email is required' } };
 
   const { error } = await authForgotPassword(email);
-  if (error)
+  if (error) {
+    console.log('Forgot password error:', error);
     return {
-      status: 400,
+      status: 500,
       body: { error: error.message ?? 'Failed to send reset email' },
     };
+  }
   return { status: 200, body: { success: true } };
 }
 
@@ -71,22 +80,27 @@ export async function resetPasswordRequest(body) {
     refreshToken,
     newPassword
   );
-  if (error)
+  if (error) {
+    console.log('Reset password error:', error);
     return {
-      status: 400,
+      status: 500,
       body: { error: error.message ?? 'Failed to reset password' },
     };
+  }
   return { status: 200, body: { data } };
 }
 
 export async function refreshSession(body) {
   const refreshToken = body?.refresh_token || '';
   const { data, error } = await authRefreshSession(refreshToken);
-  if (error)
+  if (error) {
+    console.log('Refresh session error:', error);
     return {
-      status: 401,
+      status: 500,
       body: { error: error.message ?? 'Refresh failed' },
     };
+  }
+
   return {
     status: 200,
     body: { data: { user: data.user, session: data.session } },
