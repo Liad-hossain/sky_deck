@@ -99,18 +99,49 @@ const PLATFORM_META = {
   },
 };
 
+function ConfirmInput({ onConfirm, onCancel, busy }) {
+  const [input, setInput] = useState('');
+  return (
+    <div>
+      <input
+        autoFocus
+        value={input}
+        onChange={(e) => setInput(e.target.value.toUpperCase())}
+        onClick={(e) => e.stopPropagation()}
+        className="mb-4 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white outline-none focus:border-white/30"
+      />
+      <div className="flex gap-2">
+        <button
+          onClick={onCancel}
+          className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-400"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => onConfirm(input)}
+          disabled={busy}
+          className="flex-1 rounded-xl bg-amber-500/20 px-4 py-2 text-sm text-amber-400"
+        >
+          Confirm
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const {
     user,
+    profile,
+    profileLoading,
+    getPlatforms,
     updatePlatformTitle,
     disconnectPlatformById,
     deletePlatformById,
     connectPlatform,
-    getProfile,
-    getPlatforms,
   } = useAuth();
-  const [profile, setProfile] = useState(null);
   const [connectedPlatforms, setConnectedPlatforms] = useState([]);
+  const [platformsLoading, setPlatformsLoading] = useState(true);
   const [menuOpenFor, setMenuOpenFor] = useState(null); // platform id
   const menuRefMap = useRef({});
   const menuDropdownRef = useRef(null);
@@ -119,50 +150,16 @@ export default function Dashboard() {
   const [editModal, setEditModal] = useState(null); // { id, title }
   const [confirmModal, setConfirmModal] = useState(null); // { mode: 'disconnect'|'delete', id }
   const [busy, setBusy] = useState(false);
-  // ...useAuth functions are already destructured above
 
-  function ConfirmInput({ onConfirm, onCancel, busy }) {
-    const [input, setInput] = useState('');
-    return (
-      <div>
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value.toUpperCase())}
-          className="mb-4 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white"
-        />
-        <div className="flex gap-2">
-          <button
-            onClick={onCancel}
-            className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-400"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => onConfirm(input)}
-            disabled={busy}
-            className="flex-1 rounded-xl bg-amber-500/20 px-4 py-2 text-sm text-amber-400"
-          >
-            Confirm
-          </button>
-        </div>
-      </div>
-    );
-  }
-
+  const platformsFetched = useRef(false);
   useEffect(() => {
-    // Fetch profile and platforms via backend APIs (auth handled by context).
+    if (platformsFetched.current) return;
+    platformsFetched.current = true;
     (async () => {
-      try {
-        const [{ profile }, { platforms }] = await Promise.all([
-          getProfile(),
-          getPlatforms(),
-        ]);
-        setProfile(profile ?? null);
-        setConnectedPlatforms(platforms ?? []);
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('Error loading Dashboard data:', err);
-      }
+      setPlatformsLoading(true);
+      const { platforms } = await getPlatforms();
+      setConnectedPlatforms(platforms ?? []);
+      setPlatformsLoading(false);
     })();
   }, []);
 

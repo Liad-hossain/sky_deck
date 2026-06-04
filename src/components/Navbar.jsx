@@ -1,27 +1,15 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
 import { HiOutlineLogout, HiViewGridAdd, HiOutlineLink } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar() {
-  const { user, signOut, getProfile } = useAuth();
+  const { user, signOut, profile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [avatarUrl, setAvatarUrl] = useState(null);
 
-  useEffect(() => {
-    if (!user) return;
-    const load = () =>
-      getProfile().then(({ profile }) => {
-        if (profile?.avatar_url) setAvatarUrl(profile.avatar_url);
-        else setAvatarUrl(null);
-      });
-    load();
-    window.addEventListener('avatar-updated', load);
-    return () => window.removeEventListener('avatar-updated', load);
-  }, [user]);
+  const avatarUrl = profile?.avatar_url || null;
 
   const handleSignOut = async () => {
     const { error } = await signOut();

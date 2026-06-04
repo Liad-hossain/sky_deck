@@ -1,4 +1,10 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from 'react';
 import {
   apiFetch,
   loadSession,
@@ -12,19 +18,26 @@ export const useAuth = () => useContext(AuthContext);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(true);
 
+  // ── Session init ──
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const session = loadSession();
       if (!session?.access_token) {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setProfileLoading(false);
+        }
         return;
       }
       const { ok, data } = await apiFetch('/api/session');
       if (cancelled) return;
-      if (ok && data?.data?.user) setUser(data.data.user);
-      else {
+      if (ok && data?.data?.user) {
+        setUser(data.data.user);
+      } else {
         clearSession();
         setUser(null);
       }
@@ -33,6 +46,41 @@ export function AuthProvider({ children }) {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  // ── Fetch profile once user is set ──
+  useEffect(() => {
+    if (!user) {
+      setProfileLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setProfileLoading(true);
+      const { ok, data } = await apiFetch('/api/account/profile');
+      if (cancelled) return;
+      if (ok) setProfile(data?.profile ?? data?.data ?? null);
+      setProfileLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  // ── Refresh helpers (for after mutations) ──
+  const refreshProfile = useCallback(async () => {
+    const { ok, data } = await apiFetch('/api/account/profile');
+    if (ok) setProfile(data?.profile ?? data?.data ?? null);
+    return ok
+      ? { profile: data?.profile ?? data?.data ?? null, error: null }
+      : { profile: null, error: 'Failed' };
+  }, []);
+
+  const refreshPlatforms = useCallback(async () => {
+    const { ok, data } = await apiFetch('/api/account/platforms');
+    return ok
+      ? { platforms: data?.platforms ?? [], error: null }
+      : { platforms: [], error: 'Failed' };
   }, []);
 
   const signUp = async (...args) => {
@@ -91,12 +139,9 @@ export function AuthProvider({ children }) {
     return ok ? { error: null } : { error: { message: error } };
   };
 
-  const getProfile = async () => {
-    const { ok, data, error } = await apiFetch('/api/account/profile');
-    if (!ok) return { profile: null, error: { message: error } };
-    // BE returns { data: profile } or { profile }; accept either.
-    return { profile: data?.profile ?? data?.data ?? null, error: null };
-  };
+  const getProfile = useCallback(async () => {
+    return { profile, error: null };
+  }, [profile]);
 
   const updateProfile = async (updates) => {
     const { ok, data, error } = await apiFetch('/api/account/profile', {
@@ -104,10 +149,9 @@ export function AuthProvider({ children }) {
       body: JSON.stringify(updates),
     });
     if (!ok) return { profile: null, error: { message: error } };
-    return {
-      profile: data?.profile ?? data?.data ?? null,
-      error: null,
-    };
+    const updated = data?.profile ?? data?.data ?? null;
+    setProfile(updated);
+    return { profile: updated, error: null };
   };
 
   const uploadAvatar = async (file) => {
@@ -118,14 +162,16 @@ export function AuthProvider({ children }) {
       body: fd,
     });
     if (!ok) return { url: null, error: { message: error } };
-    return { url: data?.url ?? null, error: null };
+    const url = data?.url ?? null;
+    if (url) setProfile((p) => (p ? { ...p, avatar_url: url } : p));
+    return { url, error: null };
   };
 
-  const getPlatforms = async () => {
+  const getPlatforms = useCallback(async () => {
     const { ok, data, error } = await apiFetch('/api/account/platforms');
     if (!ok) return { platforms: [], error: { message: error } };
     return { platforms: data?.platforms ?? [], error: null };
-  };
+  }, []);
 
   const connectPlatform = () => {
     window.location.href = '/api/platforms/github/install-redirect';
@@ -163,6 +209,8 @@ export function AuthProvider({ children }) {
   const value = {
     user,
     loading,
+    profile,
+    profileLoading,
     signUp,
     signIn,
     signOut,
@@ -172,6 +220,8 @@ export function AuthProvider({ children }) {
     updateProfile,
     uploadAvatar,
     getPlatforms,
+    refreshProfile,
+    refreshPlatforms,
     connectPlatform,
     updatePlatformTitle,
     disconnectPlatformById,

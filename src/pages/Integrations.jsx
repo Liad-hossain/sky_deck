@@ -237,7 +237,7 @@ const item = {
 export default function Integrations() {
   const { getPlatforms, deletePlatform, user } = useAuth();
   const [connected, setConnected] = useState({}); // { platform_type: row }
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
 
   // Modal state
@@ -247,16 +247,12 @@ export default function Integrations() {
     setLoading(true);
     const { platforms } = await getPlatforms();
     const map = {};
-    platforms.forEach((p) => {
+    (platforms ?? []).forEach((p) => {
       if (p.is_connected) map[p.platform_type] = p;
     });
     setConnected(map);
     setLoading(false);
   };
-
-  useEffect(() => {
-    load();
-  }, []);
 
   const handleConnect = async (platform) => {
     if (platform.key === 'github') {
