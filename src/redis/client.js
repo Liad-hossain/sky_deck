@@ -6,7 +6,16 @@ import {
   FIREBASE_DATABASE_URL,
 } from '../api/env_variables';
 
+// ── Cached Firebase access token ──
+let cachedToken = null;
+let tokenExpiresAt = 0; // epoch ms
+
 async function getFirebaseAccessToken() {
+  // Return cached token if still valid (with 60s buffer)
+  if (cachedToken && Date.now() < tokenExpiresAt - 60_000) {
+    return { token: cachedToken, projectId: FIREBASE_PROJECT_ID };
+  }
+
   const projectId = FIREBASE_PROJECT_ID;
   const clientEmail = FIREBASE_CLIENT_EMAIL;
   let privateKey = FIREBASE_PRIVATE_KEY || '';
@@ -58,23 +67,39 @@ async function getFirebaseAccessToken() {
     );
   }
   const data = await res.json();
-  return { token: data.access_token, projectId };
+
+  // Cache the token; expires_in is in seconds (typically 3600)
+  cachedToken = data.access_token;
+  tokenExpiresAt = Date.now() + (data.expires_in ?? 3600) * 1000;
+
+  return { token: cachedToken, projectId };
 }
 
-export async function pushWebhookEntry(rawPayload, headers = {}) {
-  const dbUrl = FIREBASE_DATABASE_URL; // optional override
-  const { token, projectId } = await getFirebaseAccessToken();
-  const baseUrl = dbUrl || `https://${projectId}.firebaseio.com`;
-  const event = headers['X-GitHub-Event'] || 'unknown';
+export async function pushGithubWebhookEntry(
+  rawPayload,
+  headers = {},
+  ttlSeconds = 86400
+) {
+  const dbUrl = FIREBASE_DATABASE_URL;
+  const { token } = await getFirebaseAccessToken();
+  const baseUrl = dbUrl || `https://${FIREBASE_PROJECT_ID}.firebaseio.com`;
+
+  const getHeader = (name) => {
+    return headers[name.toLowerCase()] ?? null;
+  };
+
+  const hook_id = getHeader('x-github-hook-id') || 'unknown';
 
   const entry = {
+    hook_id,
     timestamp: new Date().toISOString(),
+    expiresAt: Date.now() + ttlSeconds * 1000,
     headers,
     payload:
       typeof rawPayload === 'string' ? rawPayload : JSON.stringify(rawPayload),
   };
 
-  const url = `${baseUrl.replace(/\/$/, '')}/github_webhooks/${event}.json?auth=${token}`;
+  const url = `${baseUrl.replace(/\/$/, '')}/github_webhook_entries.json?auth=${token}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -87,5 +112,52 @@ export async function pushWebhookEntry(rawPayload, headers = {}) {
     );
     return false;
   }
+
   return true;
+}
+
+export async function cleanupGithubExpiredEntries() {
+  const dbUrl = FIREBASE_DATABASE_URL;
+  const { token } = await getFirebaseAccessToken();
+  const baseUrl = dbUrl || `https://${FIREBASE_PROJECT_ID}.firebaseio.com`;
+  const now = Date.now();
+
+  const queryUrl = `${baseUrl.replace(/\/$/, '')}/github_webhook_entries.json?auth=${token}&orderBy="expiresAt"&endAt=${now}`;
+  const res = await fetch(queryUrl, { method: 'GET' });
+  if (!res.ok) return 0;
+
+  const data = await res.json();
+  if (!data || typeof data !== 'object') return 0;
+
+  const keys = Object.keys(data);
+  if (keys.length === 0) return 0;
+
+  const updates = {};
+  for (const key of keys) {
+    updates[key] = null;
+  }
+
+  const patchUrl = `${baseUrl.replace(/\/$/, '')}/github_webhook_entries.json?auth=${token}`;
+  const patchRes = await fetch(patchUrl, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+
+  return patchRes.ok ? keys.length : 0;
+}
+
+export async function countGithubWebhookEntries(hook_id) {
+  const dbUrl = FIREBASE_DATABASE_URL;
+  const { token } = await getFirebaseAccessToken();
+  const baseUrl = dbUrl || `https://${FIREBASE_PROJECT_ID}.firebaseio.com`;
+
+  const queryUrl = `${baseUrl.replace(/\/$/, '')}/github_webhook_entries.json?auth=${token}&orderBy="hook_id"&equalTo="${hook_id}"&shallow=true`;
+  const res = await fetch(queryUrl, { method: 'GET' });
+  if (!res.ok) return 0;
+
+  const data = await res.json();
+  if (!data || typeof data !== 'object') return 0;
+
+  return Object.keys(data).length;
 }

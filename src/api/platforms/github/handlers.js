@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { insertOrUpdatePlatformConnection } from '../../../db/platforms.js';
 import { generateGitHubAppJWT } from './utils.js';
 import {
@@ -5,61 +6,37 @@ import {
   fetchGitHubEmails,
   fetchGitHubInstallationDetails,
 } from './github_auth.js';
-import { pushWebhookEntry } from '../../../redis/client.js';
+import {
+  pushGithubWebhookEntry,
+  countGithubWebhookEntries,
+} from '../../../redis/client.js';
 import { GITHUB_WEBHOOK_SECRET } from '../../env_variables.js';
 
-async function verifyGitHubWebhook(rawPayload, headers) {
-  try {
-    const hook_id = headers['x-github-hook-id'] || 'unknown';
-    const secret = GITHUB_WEBHOOK_SECRET;
-    if (!secret) {
-      console.log(
-        `Could not process webhook for hook_id: ${hook_id}. Webhook secret not configured.`
-      );
-      return false;
-    }
-
-    const sigHeader = (headers['x-hub-signature-256'] || '').toString();
-    if (!sigHeader) {
-      console.log(
-        `Could not process webhook for hook_id: ${hook_id}. Missing X-Hub-Signature-256 header in webhook request`
-      );
-      return false;
-    }
-
-    const crypto = await import('crypto');
-    const hmac = crypto
-      .createHmac('sha256', secret)
-      .update(JSON.stringify(rawPayload))
+function verifySignature(rawBody, signature) {
+  const expected =
+    'sha256=' +
+    crypto
+      .createHmac('sha256', GITHUB_WEBHOOK_SECRET)
+      .update(rawBody)
       .digest('hex');
-    const expected = `sha256=${hmac}`;
-    console.log('Expected signature for hook_id', hook_id, 'is', expected);
 
-    const a = Buffer.from(expected);
-    const b = Buffer.from(sigHeader);
-    try {
-      if (a.length === b.length && crypto.timingSafeEqual(a, b)) valid = true;
-    } catch (e) {
-      console.log(
-        `Invalid webhook signature for hook_id: ${hook_id}. Expected:`,
-        expected,
-        'Received:',
-        sigHeader
-      );
-      return false;
-    }
-
-    return true;
-  } catch (e) {
-    console.log('Error verifying GitHub webhook:', e);
-    return false;
-  }
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
 }
 
 export async function handleWebhookPayload(rawPayload, headers = {}) {
   try {
+    hook_id = headers['x-github-hook-id'] || 'unknown';
+    if ((await countGithubWebhookEntries(hook_id)) > 0) {
+      console.log(
+        `Duplicate GitHub webhook received for hook_id ${hook_id}, skipping processing.`
+      );
+      return true; // Return true to indicate we "handled" it, even though we're skipping actual processing, to avoid unnecessary retries from GitHub.
+    }
     console.log(`GitHub webhook payload: ${JSON.stringify(rawPayload)}`);
-    const isValid = await verifyGitHubWebhook(rawPayload, headers);
+    const isValid = await verifySignature(
+      JSON.stringify(rawPayload),
+      headers['x-hub-signature-256']
+    );
     if (!isValid) {
       console.log(`Invalid GitHub webhook payload for headers:`, headers);
       return false;
@@ -69,7 +46,7 @@ export async function handleWebhookPayload(rawPayload, headers = {}) {
     return false;
   }
 
-  return pushWebhookEntry(rawPayload, headers);
+  return pushGithubWebhookEntry(rawPayload, headers);
 }
 
 export async function handleInstallation(userId, code, installation_id) {

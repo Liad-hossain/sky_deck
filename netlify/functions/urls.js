@@ -10,12 +10,14 @@ async function buildApp() {
     { sessionRoutes },
     { accountRoutes },
     { uploadRoutes },
+    { taskRoutes },
     envVars,
   ] = await Promise.all([
     import('../../src/api/platforms/github/routes.js'),
     import('../../src/api/session/routes.js'),
     import('../../src/api/account/routes.js'),
     import('../../src/api/upload/routes.js'),
+    import('../../src/api/tasks/routes.js'),
     import('../../src/api/env_variables.js'),
   ]);
 
@@ -27,6 +29,7 @@ async function buildApp() {
 
   app.route('/platforms/github', githubRoutes);
   app.route('/upload', uploadRoutes);
+  app.route('/tasks', taskRoutes);
   app.route('/', sessionRoutes);
   app.route('/account', accountRoutes);
   app.notFound((c) => c.json({ error: 'Not found' }, 404));
