@@ -22,6 +22,10 @@ async function getFirebaseAccessToken() {
   if (!projectId || !clientEmail || !privateKey) {
     throw new Error('Missing Firebase service account environment variables');
   }
+
+  if (!privateKey.trimStart().startsWith('-----')) {
+    privateKey = Buffer.from(privateKey, 'base64').toString('utf8');
+  }
   privateKey = privateKey.replace(/\\n/g, '\n');
 
   const now = Math.floor(Date.now() / 1000);

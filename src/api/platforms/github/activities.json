@@ -1,0 +1,36 @@
+{
+  "pull_request": {
+    "activity_type": "pull_request",
+    "sub_types": [
+      {
+        "name": "opened",
+        "description": "A pull request was created."
+      },
+      {
+        "name": "closed",
+        "description": "A pull request was closed. If merged is false in the webhook payload, the pull request was closed with unmerged commits. If merged is true in the webhook payload, the pull request was merged."
+      },
+      {
+        "name": "edited",
+        "description": "The title or body of a pull request was edited, or the base branch of a pull request was changed."
+      },
+      {
+        "name": "synchronize",
+        "description": "A pull request's head branch was updated. For example, the head branch was updated from the base branch or new commits were pushed to the head branch."
+      },
+      {
+        "name": "reopened",
+        "description": "A previously closed pull request was reopened."
+      }
+    ]
+  },
+  "push": {
+    "activity_type": "push",
+    "sub_types": [
+      {
+        "name": "push",
+        "description": "This event occurs when there is a push to a repository branch. This includes when a commit is pushed, when a commit tag is pushed, when a branch is deleted, when a tag is deleted, or when a repository is created from a template."
+      }
+    ]
+  }
+}

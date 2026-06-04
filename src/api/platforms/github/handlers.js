@@ -26,13 +26,13 @@ function verifySignature(rawBody, signature) {
 export async function handleWebhookPayload(rawPayload, headers = {}) {
   try {
     hook_id = headers['x-github-hook-id'] || 'unknown';
+    console.log(`GitHub webhook payload: ${JSON.stringify(rawPayload)}`);
     if ((await countGithubWebhookEntries(hook_id)) > 0) {
       console.log(
         `Duplicate GitHub webhook received for hook_id ${hook_id}, skipping processing.`
       );
       return true; // Return true to indicate we "handled" it, even though we're skipping actual processing, to avoid unnecessary retries from GitHub.
     }
-    console.log(`GitHub webhook payload: ${JSON.stringify(rawPayload)}`);
     const isValid = await verifySignature(
       JSON.stringify(rawPayload),
       headers['x-hub-signature-256']

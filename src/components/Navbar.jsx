@@ -1,6 +1,11 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { HiOutlineLogout, HiViewGridAdd, HiOutlineLink } from 'react-icons/hi';
+import {
+  HiOutlineLogout,
+  HiViewGridAdd,
+  HiOutlineLink,
+  HiOutlineCog,
+} from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 
@@ -23,6 +28,7 @@ export default function Navbar() {
   const navLinks = [
     { to: '/dashboard', label: 'Dashboard', icon: HiViewGridAdd },
     { to: '/integrations', label: 'Integrations', icon: HiOutlineLink },
+    { to: '/settings', label: 'Settings', icon: HiOutlineCog },
   ];
 
   return (
