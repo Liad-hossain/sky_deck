@@ -6,6 +6,8 @@ import {
   updatePlatform,
   disconnectPlatform,
   deletePlatform,
+  fetchPlatformActivities,
+  toggleActivity,
 } from './services.js';
 import { authenticateUser } from '../authentication.js';
 
@@ -63,6 +65,26 @@ api.delete(
   authenticateUser(async (c, user) => {
     const platformId = c.req.param('platformId');
     const result = await deletePlatform(user.id, platformId);
+    return c.json(result.body, result.status);
+  })
+);
+
+// ── Platform Activities ─────────────────────────
+api.get(
+  '/platforms/:platformId/activities',
+  authenticateUser(async (c, user) => {
+    const platformId = c.req.param('platformId');
+    const result = await fetchPlatformActivities(user.id, platformId);
+    return c.json(result.body, result.status);
+  })
+);
+
+api.post(
+  '/platforms/:platformId/activities',
+  authenticateUser(async (c, user) => {
+    const platformId = c.req.param('platformId');
+    const body = await c.req.json().catch(() => ({}));
+    const result = await toggleActivity(user.id, platformId, body);
     return c.json(result.body, result.status);
   })
 );

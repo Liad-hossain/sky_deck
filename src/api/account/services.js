@@ -8,6 +8,10 @@ import {
   archivePlatformById,
 } from '../../db/platforms.js';
 import { handleDisconnect } from '../platforms/github/handlers.js';
+import {
+  getActivitiesForPlatform,
+  togglePlatformActivity,
+} from '../../db/activities.js';
 
 // ──────────────── Profile ────────────────
 
@@ -167,4 +171,74 @@ export async function deletePlatform(userId, platformId) {
   }
 
   return { status: 200, body: { success: true } };
+}
+
+// ──────────────── Platform Activities ────────────────
+
+export async function fetchPlatformActivities(userId, platformId) {
+  try {
+    const { platform, error: pErr } = await fetchPlatformById(
+      userId,
+      platformId
+    );
+
+    if (pErr) {
+      console.log('Error fetching platform:', pErr);
+      return {
+        status: 500,
+        body: { error: 'Something went wrong while fetching platform' },
+      };
+    }
+    if (!platform) {
+      return { status: 404, body: { error: 'Platform not found' } };
+    }
+
+    const { data, error } = await getActivitiesForPlatform(
+      platformId,
+      platform.platform_type
+    );
+    if (error) {
+      return { status: 500, body: { error } };
+    }
+
+    return { status: 200, body: { activities: data } };
+  } catch (e) {
+    console.log('Error fetching platform activities:', e);
+    return { status: 500, body: { error: 'Something went wrong' } };
+  }
+}
+
+export async function toggleActivity(userId, platformId, body) {
+  const { activity_id: activityId, action } = body;
+  if (!activityId || !['add', 'remove'].includes(action)) {
+    return {
+      status: 400,
+      body: { error: 'activity_id and action (add|remove) required' },
+    };
+  }
+
+  try {
+    const { platform, error: pErr } = await fetchPlatformById(
+      userId,
+      platformId
+    );
+    if (pErr || !platform) {
+      return { status: 404, body: { error: 'Platform not found' } };
+    }
+
+    const { error } = await togglePlatformActivity(
+      platformId,
+      activityId,
+      action
+    );
+    if (error) {
+      console.log('Error toggling platform activity:', error);
+      return { status: 500, body: { error } };
+    }
+
+    return { status: 200, body: { success: true } };
+  } catch (e) {
+    console.log('Error toggling platform activity:', e);
+    return { status: 500, body: { error: 'Something went wrong' } };
+  }
 }

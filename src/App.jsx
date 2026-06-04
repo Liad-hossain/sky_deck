@@ -11,6 +11,7 @@ import ResetPassword from './pages/ResetPassword';
 import Profile from './pages/Profile';
 import Integrations from './pages/Integrations';
 import GitHubCallback from './pages/GitHubCallback';
+import Settings from './pages/Settings';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -106,6 +107,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <GitHubCallback />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Settings />
               </ProtectedRoute>
             }
           />
