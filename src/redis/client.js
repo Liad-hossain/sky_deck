@@ -103,10 +103,13 @@ export async function pushGithubWebhookEntry(
       typeof rawPayload === 'string' ? rawPayload : JSON.stringify(rawPayload),
   };
 
-  const url = `${baseUrl.replace(/\/$/, '')}/github_webhook_entries.json?auth=${token}`;
+  const url = `${baseUrl.replace(/\/$/, '')}/github_webhook_entries.json`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
     body: JSON.stringify(entry),
   });
   if (!res.ok) {
@@ -126,8 +129,11 @@ export async function cleanupGithubExpiredEntries() {
   const baseUrl = dbUrl || `https://${FIREBASE_PROJECT_ID}.firebaseio.com`;
   const now = Date.now();
 
-  const queryUrl = `${baseUrl.replace(/\/$/, '')}/github_webhook_entries.json?auth=${token}&orderBy="expiresAt"&endAt=${now}`;
-  const res = await fetch(queryUrl, { method: 'GET' });
+  const queryUrl = `${baseUrl.replace(/\/$/, '')}/github_webhook_entries.json?orderBy="expiresAt"&endAt=${now}`;
+  const res = await fetch(queryUrl, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${token}` },
+  });
   if (!res.ok) return 0;
 
   const data = await res.json();
@@ -141,10 +147,13 @@ export async function cleanupGithubExpiredEntries() {
     updates[key] = null;
   }
 
-  const patchUrl = `${baseUrl.replace(/\/$/, '')}/github_webhook_entries.json?auth=${token}`;
+  const patchUrl = `${baseUrl.replace(/\/$/, '')}/github_webhook_entries.json`;
   const patchRes = await fetch(patchUrl, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
     body: JSON.stringify(updates),
   });
 
@@ -156,8 +165,11 @@ export async function countGithubWebhookEntries(hook_id) {
   const { token } = await getFirebaseAccessToken();
   const baseUrl = dbUrl || `https://${FIREBASE_PROJECT_ID}.firebaseio.com`;
 
-  const queryUrl = `${baseUrl.replace(/\/$/, '')}/github_webhook_entries.json?auth=${token}&orderBy="hook_id"&equalTo="${hook_id}"&shallow=true`;
-  const res = await fetch(queryUrl, { method: 'GET' });
+  const queryUrl = `${baseUrl.replace(/\/$/, '')}/github_webhook_entries.json?orderBy="hook_id"&equalTo="${hook_id}"&shallow=true`;
+  const res = await fetch(queryUrl, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${token}` },
+  });
   if (!res.ok) return 0;
 
   const data = await res.json();

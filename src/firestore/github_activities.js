@@ -54,46 +54,65 @@ export async function fetchGitHubActivities(
   platformId,
   activityType,
   limit = 20,
-  offset = 0
+  offset = 0,
+  startTs = null,
+  endTs = null
 ) {
   const { token, projectId } = await getFirestoreClient();
 
   const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery`;
 
+  const filters = [
+    {
+      fieldFilter: {
+        field: { fieldPath: 'sky_deck_user_id' },
+        op: 'EQUAL',
+        value: { stringValue: skyDeckUserId },
+      },
+    },
+    {
+      fieldFilter: {
+        field: { fieldPath: 'platform_id' },
+        op: 'EQUAL',
+        value: { stringValue: platformId },
+      },
+    },
+    {
+      fieldFilter: {
+        field: { fieldPath: 'activity_type' },
+        op: 'EQUAL',
+        value: { stringValue: activityType },
+      },
+    },
+  ];
+
+  if (startTs !== null) {
+    filters.push({
+      fieldFilter: {
+        field: { fieldPath: 'timestamp' },
+        op: 'GREATER_THAN_OR_EQUAL',
+        value: { integerValue: String(startTs) },
+      },
+    });
+  }
+
+  if (endTs !== null) {
+    filters.push({
+      fieldFilter: {
+        field: { fieldPath: 'timestamp' },
+        op: 'LESS_THAN_OR_EQUAL',
+        value: { integerValue: String(endTs) },
+      },
+    });
+  }
+
   const body = {
     structuredQuery: {
       from: [{ collectionId: COLLECTION }],
       where: {
-        compositeFilter: {
-          op: 'AND',
-          filters: [
-            {
-              fieldFilter: {
-                field: { fieldPath: 'sky_deck_user_id' },
-                op: 'EQUAL',
-                value: { stringValue: skyDeckUserId },
-              },
-            },
-            {
-              fieldFilter: {
-                field: { fieldPath: 'platform_id' },
-                op: 'EQUAL',
-                value: { stringValue: platformId },
-              },
-            },
-            {
-              fieldFilter: {
-                field: { fieldPath: 'activity_type' },
-                op: 'EQUAL',
-                value: { stringValue: activityType },
-              },
-            },
-          ],
-        },
+        compositeFilter: { op: 'AND', filters },
       },
-      orderBy: [
-        { field: { fieldPath: 'occurred_at' }, direction: 'DESCENDING' },
-      ],
+      orderBy: [{ field: { fieldPath: 'timestamp' }, direction: 'DESCENDING' }],
       offset,
       limit,
     },
@@ -126,43 +145,64 @@ export async function fetchGitHubActivities(
 export async function countGitHubActivities(
   skyDeckUserId,
   platformId,
-  activityType
+  activityType,
+  startTs = null,
+  endTs = null
 ) {
   const { token, projectId } = await getFirestoreClient();
 
   const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runAggregationQuery`;
+
+  const filters = [
+    {
+      fieldFilter: {
+        field: { fieldPath: 'sky_deck_user_id' },
+        op: 'EQUAL',
+        value: { stringValue: skyDeckUserId },
+      },
+    },
+    {
+      fieldFilter: {
+        field: { fieldPath: 'platform_id' },
+        op: 'EQUAL',
+        value: { stringValue: platformId },
+      },
+    },
+    {
+      fieldFilter: {
+        field: { fieldPath: 'activity_type' },
+        op: 'EQUAL',
+        value: { stringValue: activityType },
+      },
+    },
+  ];
+
+  if (startTs !== null) {
+    filters.push({
+      fieldFilter: {
+        field: { fieldPath: 'timestamp' },
+        op: 'GREATER_THAN_OR_EQUAL',
+        value: { integerValue: String(startTs) },
+      },
+    });
+  }
+
+  if (endTs !== null) {
+    filters.push({
+      fieldFilter: {
+        field: { fieldPath: 'timestamp' },
+        op: 'LESS_THAN_OR_EQUAL',
+        value: { integerValue: String(endTs) },
+      },
+    });
+  }
 
   const body = {
     structuredAggregationQuery: {
       structuredQuery: {
         from: [{ collectionId: COLLECTION }],
         where: {
-          compositeFilter: {
-            op: 'AND',
-            filters: [
-              {
-                fieldFilter: {
-                  field: { fieldPath: 'sky_deck_user_id' },
-                  op: 'EQUAL',
-                  value: { stringValue: skyDeckUserId },
-                },
-              },
-              {
-                fieldFilter: {
-                  field: { fieldPath: 'platform_id' },
-                  op: 'EQUAL',
-                  value: { stringValue: platformId },
-                },
-              },
-              {
-                fieldFilter: {
-                  field: { fieldPath: 'activity_type' },
-                  op: 'EQUAL',
-                  value: { stringValue: activityType },
-                },
-              },
-            ],
-          },
+          compositeFilter: { op: 'AND', filters },
         },
       },
       aggregations: [{ alias: 'count', count: {} }],

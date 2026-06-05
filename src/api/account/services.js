@@ -315,22 +315,64 @@ export async function fetchSubTypesByActivityIds(activityIds = []) {
 }
 
 const FEED_FETCHERS = {
-  github: (userId, platformId, activityType, limit, offset) =>
-    fetchGitHubActivities(userId, platformId, activityType, limit, offset),
+  github: (userId, platformId, activityType, limit, offset, startTs, endTs) =>
+    fetchGitHubActivities(
+      userId,
+      platformId,
+      activityType,
+      limit,
+      offset,
+      startTs,
+      endTs
+    ),
 };
 
 const FEED_COUNT_FETCHERS = {
-  github: (userId, platformId, activityType) =>
-    countGitHubActivities(userId, platformId, activityType),
+  github: (userId, platformId, activityType, startTs, endTs) =>
+    countGitHubActivities(userId, platformId, activityType, startTs, endTs),
 };
 
 export async function fetchPlatformActivityFeeds(
   userId,
   platformId,
   activityId,
-  limit = 20,
-  offset = 0
+  params = {}
 ) {
+  // ── Parse & validate params ───────────────────────────────────────────────
+  const limit = Math.min(parseInt(params.limit ?? '20', 10), 100);
+  const offset = Math.max(parseInt(params.offset ?? '0', 10), 0);
+
+  // Convert ISO UTC strings to Unix ms timestamps
+  let startTs = null;
+  let endTs = null;
+  if (params.start) {
+    startTs = new Date(params.start).getTime();
+    if (isNaN(startTs)) {
+      return {
+        status: 400,
+        body: {
+          error:
+            'Invalid start datetime. Use UTC ISO format e.g. 2026-06-05T00:00:00Z',
+        },
+      };
+    }
+  }
+  if (params.end) {
+    endTs = new Date(params.end).getTime();
+    if (isNaN(endTs)) {
+      return {
+        status: 400,
+        body: {
+          error:
+            'Invalid end datetime. Use UTC ISO format e.g. 2026-06-05T23:59:59Z',
+        },
+      };
+    }
+  }
+  if (startTs !== null && endTs !== null && startTs > endTs) {
+    return { status: 400, body: { error: 'start must be before end' } };
+  }
+
   if (!platformId) {
     return { status: 400, body: { error: 'Missing platform_id' } };
   }
@@ -382,14 +424,18 @@ export async function fetchPlatformActivityFeeds(
       platformId,
       activity.activity_type,
       limit,
-      offset
+      offset,
+      startTs,
+      endTs
     );
     const total_count = await countFetcher(
       userId,
       platformId,
-      activity.activity_type
+      activity.activity_type,
+      startTs,
+      endTs
     );
-    return { status: 200, body: { activities, total_count } };
+    return { status: 200, body: { activities, total_count, limit, offset } };
   } catch (e) {
     console.log(`Error fetching ${platform.platform_type} feed:`, e);
     return { status: 500, body: { error: 'Something went wrong' } };

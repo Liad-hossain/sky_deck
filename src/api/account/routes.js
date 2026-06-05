@@ -123,21 +123,11 @@ api.get(
   authenticateUser(async (c, user) => {
     const platformId = c.req.param('platformId');
     const activityId = c.req.param('activityId');
-    const url = new URL(c.req.url, 'http://localhost');
-    const limit = Math.min(
-      parseInt(url.searchParams.get('limit') ?? '20', 10),
-      100
-    );
-    const offset = Math.max(
-      parseInt(url.searchParams.get('offset') ?? '0', 10),
-      0
-    );
     const result = await fetchPlatformActivityFeeds(
       user.id,
       platformId,
       activityId,
-      limit,
-      offset
+      c.req.query()
     );
     return c.json(result.body, result.status);
   })
