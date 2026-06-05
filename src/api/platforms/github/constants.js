@@ -1,9 +1,9 @@
-class ActivityTypes {
+export class ActivityTypes {
   static PULL_REQUEST = 'pull_request';
   static PUSH = 'push';
 }
 
-class ActivitySubTypes {
+export class ActivitySubTypes {
   // Pull Request sub-types
   static PR_OPENED = 'opened';
   static PR_CLOSED = 'closed';

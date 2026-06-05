@@ -1,4 +1,5 @@
 import { supabaseAdmin, supabaseAnon } from '../api/supabase_admin.js';
+import { getPgPool } from './pg_client.js';
 
 const client = supabaseAdmin ?? supabaseAnon;
 
@@ -82,13 +83,36 @@ export async function fetchPlatformById(userId, platformId) {
   const { data, error } = await client
     .from('platforms')
     .select(
-      'id, primary_id, platform_type, title, user_metadata, platform_metadata, is_connected, connected_at, is_archived'
+      'id, user_id, primary_id, platform_type, title, user_metadata, platform_metadata, is_connected, connected_at, is_archived'
     )
     .eq('id', platformId)
     .eq('user_id', userId)
     .eq('is_archived', false)
     .maybeSingle();
   return { platform: data ?? null, error: error ?? null };
+}
+
+export async function fetchPlatformByInstallationId(installationId) {
+  const pool = getPgPool();
+  const { rows } = await pool.query(
+    `SELECT
+       p.id,
+       p.user_id,
+       p.platform_type,
+     FROM public.platforms p
+     INNER JOIN public.platform_activities pa
+       ON pa.platform_type = p.platform_type
+     INNER JOIN public.platform_visible_activities pva
+       ON pva.activity_id = pa.id
+      AND pva.platform_id = p.id
+     WHERE p.platform_metadata->>'installation_id' = $1
+       AND p.is_connected = true
+     GROUP BY p.id, p.user_id, p.platform_type, p.platform_metadata
+     LIMIT 1`,
+    [String(installationId)]
+  );
+
+  return { platform: rows[0] ?? null, error: null };
 }
 
 export async function updatePlatformById(userId, id, update_dict) {

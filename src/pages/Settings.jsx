@@ -177,7 +177,7 @@ export default function Settings() {
     (async () => {
       setLoading(true);
       const { platforms: p } = await getPlatforms();
-      setPlatforms(p ?? []);
+      setPlatforms((p ?? []).filter((pl) => pl.is_connected));
       setLoading(false);
     })();
   }, []);

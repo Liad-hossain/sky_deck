@@ -82,7 +82,7 @@ async function getFirebaseAccessToken() {
 export async function pushGithubWebhookEntry(
   rawPayload,
   headers = {},
-  ttlSeconds = 86400
+  ttlSeconds = 12 * 60 * 60
 ) {
   const dbUrl = FIREBASE_DATABASE_URL;
   const { token } = await getFirebaseAccessToken();

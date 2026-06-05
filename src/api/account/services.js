@@ -9,11 +9,16 @@ import {
 } from '../../db/platforms.js';
 import { handleDisconnect } from '../platforms/github/handlers.js';
 import {
+  fetchGitHubActivities,
+  countGitHubActivities,
+} from '../../firestore/github_activities.js';
+import {
+  fetchActivityById,
   getActivitiesForPlatform,
   togglePlatformActivity,
+  getPlatformTypeActivities,
+  getSubTypesByActivityIds,
 } from '../../db/activities.js';
-
-// ──────────────── Profile ────────────────
 
 export async function fetchProfile(userId) {
   try {
@@ -52,8 +57,6 @@ export async function updateProfile(userId, body) {
 
   return { status: 200, body: { success: true } };
 }
-
-// ──────────────── Platforms ────────────────
 
 export async function fetchPlatforms(userId, params = {}) {
   try {
@@ -173,8 +176,6 @@ export async function deletePlatform(userId, platformId) {
   return { status: 200, body: { success: true } };
 }
 
-// ──────────────── Platform Activities ────────────────
-
 export async function fetchPlatformActivities(userId, platformId) {
   try {
     const { platform, error: pErr } = await fetchPlatformById(
@@ -239,6 +240,158 @@ export async function toggleActivity(userId, platformId, body) {
     return { status: 200, body: { success: true } };
   } catch (e) {
     console.log('Error toggling platform activity:', e);
+    return { status: 500, body: { error: 'Something went wrong' } };
+  }
+}
+
+export async function fetchActivitiesByPlatformType(userId, platformType) {
+  try {
+    const { data, error } = await getPlatformTypeActivities(
+      userId,
+      platformType
+    );
+    let platformActivityMap = {};
+    data.forEach((row) => {
+      const {
+        platform_id,
+        platform_type,
+        platform_title,
+        activity_id,
+        activity_type,
+      } = row;
+
+      if (!platformActivityMap[platform_id]) {
+        platformActivityMap[platform_id] = {
+          platform_id,
+          platform_type,
+          platform_title,
+          activities: [],
+        };
+      }
+
+      platformActivityMap[platform_id].activities.push({
+        activity_id,
+        activity_type,
+      });
+    });
+    const platformActivities = Object.values(platformActivityMap);
+    if (error) return { status: 500, body: { error } };
+    return { status: 200, body: { platform_activities: platformActivities } };
+  } catch (e) {
+    console.log('Error fetching activities with sub types:', e);
+    return { status: 500, body: { error: 'Something went wrong' } };
+  }
+}
+
+export async function fetchSubTypesByActivityIds(activityIds = []) {
+  if (!activityIds.length) {
+    return { status: 400, body: { error: 'No activity_ids provided' } };
+  }
+
+  try {
+    const { data, error } = await getSubTypesByActivityIds(activityIds);
+    if (error) return { status: 500, body: { error } };
+    let activitySubTypeMap = {};
+    data.forEach((row) => {
+      const { id, activity_id, sub_type, description, activity_type } = row;
+      if (!activitySubTypeMap[activity_id]) {
+        activitySubTypeMap[activity_id] = { activity_type, sub_types: [] };
+      }
+      activitySubTypeMap[activity_id].sub_types.push({
+        id,
+        sub_type,
+        description,
+      });
+    });
+
+    return {
+      status: 200,
+      body: { activities: Object.values(activitySubTypeMap) },
+    };
+  } catch (e) {
+    console.log('Error fetching sub types by activity ids:', e);
+    return { status: 500, body: { error: 'Something went wrong' } };
+  }
+}
+
+const FEED_FETCHERS = {
+  github: (userId, platformId, activityType, limit, offset) =>
+    fetchGitHubActivities(userId, platformId, activityType, limit, offset),
+};
+
+const FEED_COUNT_FETCHERS = {
+  github: (userId, platformId, activityType) =>
+    countGitHubActivities(userId, platformId, activityType),
+};
+
+export async function fetchPlatformActivityFeeds(
+  userId,
+  platformId,
+  activityId,
+  limit = 20,
+  offset = 0
+) {
+  if (!platformId) {
+    return { status: 400, body: { error: 'Missing platform_id' } };
+  }
+  const { platform, error } = await fetchPlatformById(userId, platformId);
+  if (error) {
+    console.log('Error fetching platform:', error);
+    return {
+      status: 500,
+      body: { error: 'Something went wrong while fetching activitiy feeds' },
+    };
+  }
+
+  if (!platform) {
+    return { status: 404, body: { error: 'Platform not found' } };
+  }
+
+  const { activity, err } = await fetchActivityById(activityId);
+  if (err) {
+    console.log('Error fetching activity by id:', err);
+    return {
+      status: 500,
+      body: { error: 'Something went wrong while fetching activity details' },
+    };
+  }
+
+  if (!activity) {
+    return { status: 404, body: { error: 'Activity not found' } };
+  }
+
+  if (activity.platform_type !== platform.platform_type) {
+    return {
+      status: 400,
+      body: { error: 'Activity does not belong to the platform' },
+    };
+  }
+
+  const fetcher = FEED_FETCHERS[platform.platform_type];
+  const countFetcher = FEED_COUNT_FETCHERS[platform.platform_type];
+  if (!fetcher || !countFetcher) {
+    return {
+      status: 400,
+      body: { error: `Unsupported platform_type: ${platform.platform_type}` },
+    };
+  }
+
+  try {
+    const activities = await fetcher(
+      userId,
+      platformId,
+      activity.activity_type,
+      limit,
+      offset
+    );
+    const total_count = await countFetcher(
+      userId,
+      platformId,
+      activity.activity_type
+    );
+    return { status: 200, body: { activities, total_count } };
+  } catch (e) {
+    console.log(`Error fetching ${platform.platform_type} feed:`, e);
     return { status: 500, body: { error: 'Something went wrong' } };
   }
 }
