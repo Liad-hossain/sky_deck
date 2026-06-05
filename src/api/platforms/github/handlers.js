@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { insertOrUpdatePlatformConnection } from '../../../db/platforms.js';
+import { fetchPlatformByInstallationId } from '../../../db/platforms.js';
 import { generateGitHubAppJWT } from './utils.js';
 import {
   fetchGitHubTokens,
@@ -10,7 +11,9 @@ import {
   pushGithubWebhookEntry,
   countGithubWebhookEntries,
 } from '../../../redis/client.js';
+import { insertGitHubActivity } from '../../../firestore/github_activities.js';
 import { GITHUB_WEBHOOK_SECRET } from '../../env_variables.js';
+import { parseGitHubWebhookPayload } from './parser.js';
 
 function verifySignature(rawBody, signature) {
   const expected =
@@ -25,15 +28,18 @@ function verifySignature(rawBody, signature) {
 
 export async function handleWebhookPayload(rawPayload, headers = {}) {
   try {
-    hook_id = headers['x-github-hook-id'] || 'unknown';
+    const hook_id = headers['x-github-hook-id'] || 'unknown';
+    const eventType = headers['x-github-event'] || 'unknown';
+
     console.log(`GitHub webhook payload: ${JSON.stringify(rawPayload)}`);
     if ((await countGithubWebhookEntries(hook_id)) > 0) {
       console.log(
         `Duplicate GitHub webhook received for hook_id ${hook_id}, skipping processing.`
       );
-      return true; // Return true to indicate we "handled" it, even though we're skipping actual processing, to avoid unnecessary retries from GitHub.
+      return true;
     }
-    const isValid = await verifySignature(
+
+    const isValid = verifySignature(
       JSON.stringify(rawPayload),
       headers['x-hub-signature-256']
     );
@@ -41,12 +47,42 @@ export async function handleWebhookPayload(rawPayload, headers = {}) {
       console.log(`Invalid GitHub webhook payload for headers:`, headers);
       return false;
     }
+    await pushGithubWebhookEntry(rawPayload, headers);
+
+    const document = parseGitHubWebhookPayload(eventType, rawPayload);
+
+    if (document) {
+      console.log(
+        `Parsed GitHub webhook document for hook_id: ${hook_id}, event type: ${eventType}:`,
+        document
+      );
+      const installationId = document.installation_id;
+      if (installationId) {
+        const { platform } =
+          await fetchPlatformByInstallationId(installationId);
+        if (platform) {
+          await insertGitHubActivity({
+            ...document,
+            sky_deck_user_id: platform.user_id,
+            platform_id: platform.id,
+          });
+        } else {
+          console.log(
+            `No platform found for installation_id ${installationId}`
+          );
+        }
+      }
+    } else {
+      console.log(
+        `Something went wrong generating document for hook_id: ${hook_id}, event type: ${eventType}.`
+      );
+    }
+
+    return true;
   } catch (e) {
     console.log('Error in handleWebhookPayload:', e);
     return false;
   }
-
-  return pushGithubWebhookEntry(rawPayload, headers);
 }
 
 export async function handleInstallation(userId, code, installation_id) {

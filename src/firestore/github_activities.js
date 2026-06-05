@@ -26,15 +26,8 @@ function fromFields(fields) {
   return obj;
 }
 
-export async function insertGitHubActivity(activity) {
+export async function insertGitHubActivity(document) {
   const { token, projectId } = await getFirestoreClient();
-
-  const doc = {
-    ...activity,
-    payload: JSON.stringify(activity.payload), // always store as string
-    created_at: new Date().toISOString(),
-  };
-
   const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${COLLECTION}`;
 
   const res = await fetch(url, {
@@ -43,7 +36,7 @@ export async function insertGitHubActivity(activity) {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ fields: toFields(doc) }),
+    body: JSON.stringify({ fields: toFields({ ...document }) }),
   });
 
   if (!res.ok) {
@@ -52,12 +45,17 @@ export async function insertGitHubActivity(activity) {
   }
 
   const created = await res.json();
-  // Document name format: projects/{proj}/databases/(default)/documents/{col}/{id}
   const id = created.name.split('/').pop();
   return { id, data: fromFields(created.fields) };
 }
 
-export async function fetchGitHubActivities(skyDeckUserId, limit = 50) {
+export async function fetchGitHubActivities(
+  skyDeckUserId,
+  platformId,
+  activityType,
+  limit = 20,
+  offset = 0
+) {
   const { token, projectId } = await getFirestoreClient();
 
   const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery`;
@@ -66,15 +64,37 @@ export async function fetchGitHubActivities(skyDeckUserId, limit = 50) {
     structuredQuery: {
       from: [{ collectionId: COLLECTION }],
       where: {
-        fieldFilter: {
-          field: { fieldPath: 'sky_deck_user_id' },
-          op: 'EQUAL',
-          value: { stringValue: skyDeckUserId },
+        compositeFilter: {
+          op: 'AND',
+          filters: [
+            {
+              fieldFilter: {
+                field: { fieldPath: 'sky_deck_user_id' },
+                op: 'EQUAL',
+                value: { stringValue: skyDeckUserId },
+              },
+            },
+            {
+              fieldFilter: {
+                field: { fieldPath: 'platform_id' },
+                op: 'EQUAL',
+                value: { stringValue: platformId },
+              },
+            },
+            {
+              fieldFilter: {
+                field: { fieldPath: 'activity_type' },
+                op: 'EQUAL',
+                value: { stringValue: activityType },
+              },
+            },
+          ],
         },
       },
       orderBy: [
         { field: { fieldPath: 'occurred_at' }, direction: 'DESCENDING' },
       ],
+      offset,
       limit,
     },
   };
@@ -99,6 +119,71 @@ export async function fetchGitHubActivities(skyDeckUserId, limit = 50) {
     .filter((r) => r.document)
     .map((r) => ({
       id: r.document.name.split('/').pop(),
-      data: fromFields(r.document.fields),
+      ...fromFields(r.document.fields),
     }));
+}
+
+export async function countGitHubActivities(
+  skyDeckUserId,
+  platformId,
+  activityType
+) {
+  const { token, projectId } = await getFirestoreClient();
+
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runAggregationQuery`;
+
+  const body = {
+    structuredAggregationQuery: {
+      structuredQuery: {
+        from: [{ collectionId: COLLECTION }],
+        where: {
+          compositeFilter: {
+            op: 'AND',
+            filters: [
+              {
+                fieldFilter: {
+                  field: { fieldPath: 'sky_deck_user_id' },
+                  op: 'EQUAL',
+                  value: { stringValue: skyDeckUserId },
+                },
+              },
+              {
+                fieldFilter: {
+                  field: { fieldPath: 'platform_id' },
+                  op: 'EQUAL',
+                  value: { stringValue: platformId },
+                },
+              },
+              {
+                fieldFilter: {
+                  field: { fieldPath: 'activity_type' },
+                  op: 'EQUAL',
+                  value: { stringValue: activityType },
+                },
+              },
+            ],
+          },
+        },
+      },
+      aggregations: [{ alias: 'count', count: {} }],
+    },
+  };
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Firestore aggregation query failed: ${err}`);
+  }
+
+  const rows = await res.json();
+  const count = rows?.[0]?.result?.aggregateFields?.count?.integerValue;
+  return Number(count ?? 0);
 }
