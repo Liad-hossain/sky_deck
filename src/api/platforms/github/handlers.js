@@ -14,6 +14,7 @@ import {
 import { insertGitHubActivity } from '../../../firestore/github_activities.js';
 import { GITHUB_WEBHOOK_SECRET } from '../../env_variables.js';
 import { parseGitHubWebhookPayload } from './parser.js';
+import { generateActivitySummary } from './llm_tasks.js';
 
 function verifySignature(rawBody, signature) {
   const expected =
@@ -56,10 +57,34 @@ export async function handleWebhookPayload(rawPayload, headers = {}) {
         `Parsed GitHub webhook document for hook_id: ${hook_id}, event type: ${eventType}:`,
         document
       );
+
+      // Generate LLM summary (non-blocking — falls back to null on error)
+      const llmSummary = await generateActivitySummary(document);
+      document.summary = llmSummary ?? document.summary ?? null;
+
       const installationId = document.installation_id;
       if (installationId) {
-        const { platform } =
-          await fetchPlatformByInstallationId(installationId);
+        let platform = null;
+        try {
+          const result = await fetchPlatformByInstallationId(installationId);
+          platform = result.platform;
+        } catch (dbErr) {
+          if (
+            dbErr.code === '28P01' || // wrong password
+            dbErr.message?.includes('SUPABASE_DB_URL') // env var missing
+          ) {
+            console.error(
+              '[handlers] DB auth failed — SUPABASE_DB_URL is missing'
+            );
+          } else {
+            console.error(
+              '[handlers] fetchPlatformByInstallationId error:',
+              dbErr
+            );
+          }
+          return true;
+        }
+
         if (platform) {
           await insertGitHubActivity({
             ...document,
@@ -74,7 +99,7 @@ export async function handleWebhookPayload(rawPayload, headers = {}) {
       }
     } else {
       console.log(
-        `Something went wrong generating document for hook_id: ${hook_id}, event type: ${eventType}.`
+        `Something went wrong extracting document for hook_id: ${hook_id}, event type: ${eventType}.`
       );
     }
 

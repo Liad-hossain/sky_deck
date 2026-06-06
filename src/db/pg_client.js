@@ -8,18 +8,25 @@ let pool = null;
 export function getPgPool() {
   if (!pool) {
     if (!SUPABASE_DB_URL) {
-      throw new Error('SUPABASE_DB_URL is not configured');
+      throw new Error(
+        '[pg_client] SUPABASE_DB_URL is not set. ' +
+          'Add it to Netlify → Site settings → Environment variables.'
+      );
     }
+
+    const connStr = SUPABASE_DB_URL.replace(/[?&]sslmode=[^&]*/g, '');
+
     pool = new Pool({
-      connectionString: SUPABASE_DB_URL,
+      connectionString: connStr,
       max: 3,
-      idleTimeoutMillis: 10_000, // close idle connections after 10s
-      connectionTimeoutMillis: 5_000,
+      idleTimeoutMillis: 10_000,
+      connectionTimeoutMillis: 8_000,
       ssl: { rejectUnauthorized: false },
     });
 
     pool.on('error', (err) => {
-      console.error('pg pool background error:', err.message);
+      console.error('[pg_client] pool background error:', err.message);
+      pool = null;
     });
   }
   return pool;
