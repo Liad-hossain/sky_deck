@@ -6,7 +6,6 @@ import {
   HiOutlineX,
   HiOutlineClock,
   HiOutlineUser,
-  HiOutlineDocumentText,
   HiOutlineDatabase,
   HiOutlineCode,
   HiOutlineTag,
@@ -15,6 +14,7 @@ import {
   HiOutlineRefresh,
   HiOutlineCheck,
   HiOutlineDotsVertical,
+  HiOutlineSparkles,
 } from 'react-icons/hi';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
@@ -69,30 +69,71 @@ function fmtDate(v) {
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
+// Keys must match the actual activity_sub_type values stored in Firestore/DB
+// (ActivitySubTypes constants: 'opened', 'closed', 'reopened', 'synchronize', 'edited', 'push')
 const SUB_TYPE = {
-  PR_OPENED: {
+  opened: {
     label: 'Opened',
     dot: 'bg-emerald-400',
     chip: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
     bar: 'from-emerald-500 to-teal-500',
+    cardBorder: 'border-emerald-500/25',
+    cardBg: 'bg-emerald-500/[0.06]',
+    descColor: 'text-emerald-300/70',
   },
-  PR_CLOSED: {
+  closed: {
     label: 'Closed',
     dot: 'bg-red-400',
     chip: 'bg-red-500/20 text-red-300 border-red-500/30',
     bar: 'from-red-500 to-rose-500',
+    cardBorder: 'border-red-500/25',
+    cardBg: 'bg-red-500/[0.06]',
+    descColor: 'text-red-300/70',
   },
-  PR_MERGED: {
-    label: 'Merged',
-    dot: 'bg-purple-400',
-    chip: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-    bar: 'from-purple-500 to-violet-500',
-  },
-  PR_REOPENED: {
+  reopened: {
     label: 'Reopened',
     dot: 'bg-amber-400',
     chip: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
     bar: 'from-amber-500 to-orange-500',
+    cardBorder: 'border-amber-500/25',
+    cardBg: 'bg-amber-500/[0.06]',
+    descColor: 'text-amber-300/70',
+  },
+  edited: {
+    label: 'Edited',
+    dot: 'bg-sky-400',
+    chip: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
+    bar: 'from-sky-500 to-cyan-500',
+    cardBorder: 'border-sky-500/25',
+    cardBg: 'bg-sky-500/[0.06]',
+    descColor: 'text-sky-300/70',
+  },
+  synchronize: {
+    label: 'Synchronize',
+    dot: 'bg-blue-400',
+    chip: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+    bar: 'from-blue-500 to-indigo-500',
+    cardBorder: 'border-blue-500/25',
+    cardBg: 'bg-blue-500/[0.06]',
+    descColor: 'text-blue-300/70',
+  },
+  push: {
+    label: 'Push',
+    dot: 'bg-teal-400',
+    chip: 'bg-teal-500/20 text-teal-300 border-teal-500/30',
+    bar: 'from-teal-500 to-emerald-500',
+    cardBorder: 'border-teal-500/25',
+    cardBg: 'bg-teal-500/[0.06]',
+    descColor: 'text-teal-300/70',
+  },
+  submitted: {
+    label: 'Review',
+    dot: 'bg-purple-400',
+    chip: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+    bar: 'from-purple-500 to-violet-500',
+    cardBorder: 'border-purple-500/25',
+    cardBg: 'bg-purple-500/[0.06]',
+    descColor: 'text-purple-300/70',
   },
 };
 
@@ -153,12 +194,17 @@ function StateChip({ state, isMerged, isDraft }) {
 
 // ─── Activity Card ────────────────────────────────────────────────────────────
 
-function ActivityCard({ item, onExpand, isSelected }) {
+function ActivityCard({ item, onExpand, isSelected, subTypeDesc }) {
   const repo = tryParse(item.repository);
   const actor = tryParse(item.actor);
   const pr = tryParse(item.pull_request);
-  const isPR = item.activity_type === 'PULL_REQUEST';
-  const st = SUB_TYPE[item.activity_sub_type];
+  const isPR = item.activity_type === 'pull_request';
+  const st = SUB_TYPE[item.activity_sub_type] ?? {
+    bar: 'from-gray-500 to-slate-600',
+    cardBorder: 'border-gray-500/20',
+    cardBg: 'bg-gray-500/[0.04]',
+    descColor: 'text-gray-400/70',
+  };
 
   return (
     <motion.div
@@ -168,12 +214,12 @@ function ActivityCard({ item, onExpand, isSelected }) {
       className={`group relative cursor-pointer overflow-hidden rounded-xl border transition-all duration-150 ${
         isSelected
           ? 'border-indigo-500/60 bg-indigo-500/10 shadow-md shadow-indigo-500/10'
-          : 'border-white/8 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]'
+          : `${st.cardBorder} ${st.cardBg} hover:brightness-110`
       }`}
     >
       {/* gradient left accent */}
       <div
-        className={`absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b ${st?.bar ?? 'from-indigo-500 to-purple-500'} opacity-70`}
+        className={`absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b ${st.bar}`}
       />
 
       <div className="px-3.5 py-3 pl-5">
@@ -193,16 +239,12 @@ function ActivityCard({ item, onExpand, isSelected }) {
           </span>
         </div>
 
-        {/* title */}
-        <p className="mt-1.5 line-clamp-2 text-sm font-semibold leading-snug text-white/90">
-          {isPR && pr?.number ? (
-            <>
-              <span className="mr-1 text-indigo-400/80">#{pr.number}</span>
-              {pr.title || 'Untitled'}
-            </>
-          ) : (
-            item.summary || 'Activity'
-          )}
+        {/* sub_type description — colored to match sub_type */}
+        <p
+          className={`mt-1.5 line-clamp-2 text-xs leading-relaxed ${st.descColor}`}
+        >
+          {subTypeDesc ||
+            (item.activity_sub_type ?? 'Activity').replace(/_/g, ' ')}
         </p>
 
         {/* actor + repo */}
@@ -253,6 +295,45 @@ function ActivityCard({ item, onExpand, isSelected }) {
             )}
           </div>
         )}
+
+        {/* Edited changes — only for PR_EDITED sub_type */}
+        {isPR &&
+          item.activity_sub_type === 'edited' &&
+          pr?.changes &&
+          Object.keys(pr.changes).length > 0 && (
+            <div className="mt-2 space-y-1 border-t border-white/5 pt-2 text-[10px]">
+              {pr.changes.title?.from && (
+                <div className="flex items-start gap-1.5">
+                  <span className="shrink-0 text-gray-600">title</span>
+                  <span className="truncate font-mono text-red-400/80 line-through">
+                    {pr.changes.title.from}
+                  </span>
+                  <span className="shrink-0 text-gray-600">→</span>
+                  <span className="truncate font-mono text-sky-300">
+                    {pr.title}
+                  </span>
+                </div>
+              )}
+              {pr.changes.base?.ref?.from && (
+                <div className="flex items-center gap-1.5">
+                  <span className="shrink-0 text-gray-600">base</span>
+                  <span className="rounded bg-red-500/10 px-1 py-0.5 font-mono text-red-400/80 line-through">
+                    {pr.changes.base.ref.from}
+                  </span>
+                  <span className="text-gray-600">→</span>
+                  <span className="rounded bg-indigo-500/10 px-1 py-0.5 font-mono text-indigo-300">
+                    {pr.base?.ref}
+                  </span>
+                </div>
+              )}
+              {pr.changes.body?.from != null && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-gray-600">description</span>
+                  <span className="text-sky-400">updated</span>
+                </div>
+              )}
+            </div>
+          )}
       </div>
     </motion.div>
   );
@@ -292,10 +373,13 @@ function ActivityDetail({ item, onClose }) {
   const repo = tryParse(item.repository);
   const actor = tryParse(item.actor);
   const pr = tryParse(item.pull_request);
-  const isPR = item.activity_type === 'PULL_REQUEST';
+  const pushEvent = tryParse(item.push_event);
+  const isPR = item.activity_type === 'pull_request';
+  const isPush = item.activity_type === 'push';
   const labels = tryParseArray(pr?.labels);
   const reviewers = tryParseArray(pr?.requested_reviewers);
   const assignees = tryParseArray(pr?.assignees);
+  const commits = tryParseArray(pushEvent?.commits);
   const st = SUB_TYPE[item.activity_sub_type];
 
   return (
@@ -333,8 +417,15 @@ function ActivityDetail({ item, onClose }) {
                 <span className="text-indigo-400">#{pr.number}</span>{' '}
                 {pr.title || 'Untitled'}
               </>
+            ) : isPush ? (
+              <span className="text-gray-300">
+                {repo?.full_name || 'Push Event'}
+              </span>
             ) : (
-              item.summary || 'Activity'
+              <span className="text-gray-300">
+                {repo?.full_name ||
+                  (item.activity_sub_type ?? 'Activity').replace(/_/g, ' ')}
+              </span>
             )}
           </h2>
           {pr?.html_url && (
@@ -359,6 +450,13 @@ function ActivityDetail({ item, onClose }) {
 
       {/* Scrollable sections */}
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
+        {/* AI Summary — shown inside detail, not on card */}
+        {item.summary && (
+          <Section title="AI Summary" icon={HiOutlineSparkles}>
+            <p className="leading-relaxed text-gray-300">{item.summary}</p>
+          </Section>
+        )}
+
         {/* Author */}
         <Section title="Author" icon={HiOutlineUser}>
           {actor && (
@@ -405,15 +503,6 @@ function ActivityDetail({ item, onClose }) {
             </div>
           )}
         </Section>
-
-        {/* Description */}
-        {isPR && pr?.body && (
-          <Section title="Description" icon={HiOutlineDocumentText}>
-            <p className="whitespace-pre-wrap leading-relaxed text-gray-300">
-              {pr.body}
-            </p>
-          </Section>
-        )}
 
         {/* Repository */}
         {repo && Object.keys(repo).length > 0 && (
@@ -600,6 +689,140 @@ function ActivityDetail({ item, onClose }) {
             )}
           </Section>
         )}
+
+        {/* Push Details */}
+        {isPush && pushEvent && (
+          <Section title="Push Details" icon={HiOutlineCode}>
+            {/* flags */}
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {pushEvent.forced && (
+                <span className="rounded-full border border-red-500/30 bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold text-red-300">
+                  Force Push
+                </span>
+              )}
+              {pushEvent.created && (
+                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                  New Branch
+                </span>
+              )}
+              {pushEvent.deleted && (
+                <span className="rounded-full border border-red-500/30 bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold text-red-300">
+                  Branch Deleted
+                </span>
+              )}
+            </div>
+
+            {/* compare url */}
+            {pushEvent.compare_url && (
+              <div className="mb-3">
+                <a
+                  href={pushEvent.compare_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300"
+                >
+                  <HiOutlineExternalLink className="h-3 w-3" /> View diff on
+                  GitHub
+                </a>
+              </div>
+            )}
+
+            {/* commits */}
+            {commits.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                  {commits.length} Commit{commits.length !== 1 ? 's' : ''}
+                </p>
+                {commits.map((commit, i) => (
+                  <div
+                    key={commit.id ?? i}
+                    className="border-white/8 rounded-lg border bg-black/20 p-3"
+                  >
+                    {/* message + link */}
+                    <div className="mb-1.5 flex items-start justify-between gap-2">
+                      <p className="flex-1 text-xs font-medium leading-snug text-white/90">
+                        {commit.message || '(no message)'}
+                      </p>
+                      {commit.url && (
+                        <a
+                          href={commit.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 text-indigo-400 hover:text-indigo-300"
+                        >
+                          <HiOutlineExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                    </div>
+                    {/* author */}
+                    {commit.author?.name && (
+                      <p className="mb-2 text-[10px] text-gray-500">
+                        by {commit.author.name}
+                        {commit.author.username
+                          ? ` (${commit.author.username})`
+                          : ''}
+                      </p>
+                    )}
+                    {/* file changes */}
+                    <div className="space-y-1.5">
+                      {commit.added?.length > 0 && (
+                        <div className="flex items-start gap-1.5">
+                          <span className="mt-0.5 shrink-0 text-[10px] font-bold text-emerald-400">
+                            +{commit.added.length}
+                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {commit.added.map((f, j) => (
+                              <span
+                                key={j}
+                                className="rounded bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[9px] text-emerald-300"
+                              >
+                                {f}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {commit.modified?.length > 0 && (
+                        <div className="flex items-start gap-1.5">
+                          <span className="mt-0.5 shrink-0 text-[10px] font-bold text-amber-400">
+                            ~{commit.modified.length}
+                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {commit.modified.map((f, j) => (
+                              <span
+                                key={j}
+                                className="rounded bg-amber-500/10 px-1.5 py-0.5 font-mono text-[9px] text-amber-300"
+                              >
+                                {f}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {commit.removed?.length > 0 && (
+                        <div className="flex items-start gap-1.5">
+                          <span className="mt-0.5 shrink-0 text-[10px] font-bold text-red-400">
+                            -{commit.removed.length}
+                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {commit.removed.map((f, j) => (
+                              <span
+                                key={j}
+                                className="rounded bg-red-500/10 px-1.5 py-0.5 font-mono text-[9px] text-red-300"
+                              >
+                                {f}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+        )}
       </div>
     </motion.div>
   );
@@ -616,7 +839,26 @@ function ActivityFeed({ platformId, activity }) {
     error: null,
   });
   const [selected, setSelected] = useState(null);
+  const [subTypeMap, setSubTypeMap] = useState({});
   const loaded = useRef(new Set());
+  const subTypeFetched = useRef(false);
+
+  // Fetch sub_type descriptions — guarded by ref to prevent StrictMode double-invoke
+  useEffect(() => {
+    if (subTypeFetched.current) return;
+    subTypeFetched.current = true;
+    (async () => {
+      const { ok, data } = await apiFetch(
+        `/api/account/activity-sub-types?activity_ids=${activity.activity_id}`
+      );
+      if (ok) {
+        const subs = data?.activities?.[0]?.sub_types ?? [];
+        const map = {};
+        for (const s of subs) map[s.sub_type] = s.description ?? '';
+        setSubTypeMap(map);
+      }
+    })();
+  }, [activity.activity_id]);
 
   const load = useCallback(
     async (offset = 0) => {
@@ -714,6 +956,7 @@ function ActivityFeed({ platformId, activity }) {
                   item={item}
                   onExpand={setSelected}
                   isSelected={selected?.id === item.id}
+                  subTypeDesc={subTypeMap[item.activity_sub_type] ?? ''}
                 />
               ))}
             </div>

@@ -142,6 +142,7 @@ export class PullRequestSchema {
       html_url: { path: 'pull_request.merged_by.html_url', default: null },
       api_url: { path: 'pull_request.merged_by.url', default: null },
     },
+    changes: { path: 'changes', default: {} },
   };
 }
 
@@ -250,7 +251,7 @@ export class PushEventSchema {
 
 export class PushActivitySchema extends BaseSchema {
   static activity_type = ActivityTypes.PUSH;
-  static activity_sub_type = ActivitySubTypes.PUSH_EVENT;
+  static activity_sub_type = ActivitySubTypes.PUSH;
   static timestamp = {
     path: 'head_commit.timestamp',
     default: null,
@@ -276,6 +277,7 @@ class PullRequestReviewSchema {
     html_url: { path: 'review.html_url', default: null },
     id: { path: 'review.id', default: null },
     pull_request_url: { path: 'review.pull_request_url', default: null },
+    pull_request_title: { path: 'pull_request.title', default: null },
     state: { path: 'review.state', default: null },
     submitted_at: { path: 'review.submitted_at', default: null },
     updated_at: { path: 'review.updated_at', default: null },

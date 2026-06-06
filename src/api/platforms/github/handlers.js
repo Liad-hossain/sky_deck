@@ -27,26 +27,74 @@ function verifySignature(rawBody, signature) {
   return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
 }
 
-export async function handleWebhookPayload(rawPayload, headers = {}) {
+async function shouldProcessWebhook(rawPayload, headers) {
   try {
     const hook_id = headers['x-github-hook-id'] || 'unknown';
     const eventType = headers['x-github-event'] || 'unknown';
-
-    console.log(`GitHub webhook payload: ${JSON.stringify(rawPayload)}`);
-    if ((await countGithubWebhookEntries(hook_id)) > 0) {
-      console.log(
-        `Duplicate GitHub webhook received for hook_id ${hook_id}, skipping processing.`
-      );
-      return true;
-    }
 
     const isValid = verifySignature(
       JSON.stringify(rawPayload),
       headers['x-hub-signature-256']
     );
+
     if (!isValid) {
       console.log(`Invalid GitHub webhook payload for headers:`, headers);
       return false;
+    }
+
+    if (!rawPayload.installation || !rawPayload.installation.id) {
+      console.log(
+        `GitHub webhook payload missing installation information for hook_id ${hook_id}, event type ${eventType}.`
+      );
+      return false;
+    }
+
+    let platform = null;
+    try {
+      const result = await fetchPlatformByInstallationId(
+        rawPayload.installation.id
+      );
+      platform = result.platform;
+    } catch (dbErr) {
+      console.log(
+        `Database error fetching platform for installation_id ${installationId}:`,
+        dbErr
+      );
+      return false;
+    }
+
+    if (
+      rawPayload.sender.id !==
+      platform?.platform_metadata?.installation_details?.account?.id
+    ) {
+      console.log(
+        `GitHub webhook sender ID ${rawPayload.sender.id} does not match installation account ID ${platform?.platform_metadata?.installation_details?.account?.id} for hook_id ${hook_id}, event type ${eventType}.`
+      );
+      return false;
+    }
+
+    if ((await countGithubWebhookEntries(hook_id)) > 0) {
+      console.log(
+        `Duplicate GitHub webhook received for hook_id ${hook_id}, skipping processing.`
+      );
+      return false;
+    }
+  } catch (e) {
+    console.log('Error in handleWebhookPreprocess:', e);
+    return false;
+  }
+
+  return true;
+}
+
+export async function handleWebhookPayload(rawPayload, headers = {}) {
+  try {
+    console.log(`GitHub webhook payload: ${JSON.stringify(rawPayload)}`);
+    const hook_id = headers['x-github-hook-id'] || 'unknown';
+    const eventType = headers['x-github-event'] || 'unknown';
+
+    if (!(await shouldProcessWebhook(rawPayload, headers))) {
+      return;
     }
     await pushGithubWebhookEntry(rawPayload, headers);
 
@@ -61,42 +109,18 @@ export async function handleWebhookPayload(rawPayload, headers = {}) {
       const llmSummary = await generateActivitySummary(document);
       document.summary = llmSummary ?? document.summary ?? null;
 
-      const installationId = document.installation_id;
-      if (installationId) {
-        let platform = null;
-        try {
-          const result = await fetchPlatformByInstallationId(installationId);
-          platform = result.platform;
-        } catch (dbErr) {
-          console.log(
-            `Database error fetching platform for installation_id ${installationId}:`,
-            dbErr
-          );
-          return true;
-        }
-
-        if (platform) {
-          await insertGitHubActivity({
-            ...document,
-            sky_deck_user_id: platform.user_id,
-            platform_id: platform.id,
-          });
-        } else {
-          console.log(
-            `No platform found for installation_id ${installationId}`
-          );
-        }
-      }
+      await insertGitHubActivity({
+        ...document,
+        sky_deck_user_id: platform.user_id,
+        platform_id: platform.id,
+      });
     } else {
       console.log(
         `Something went wrong extracting document for hook_id: ${hook_id}, event type: ${eventType}.`
       );
     }
-
-    return true;
   } catch (e) {
     console.log('Error in handleWebhookPayload:', e);
-    return false;
   }
 }
 
