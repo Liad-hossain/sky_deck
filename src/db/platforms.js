@@ -98,7 +98,7 @@ export async function fetchPlatformByInstallationId(installationId) {
     `SELECT
        p.id,
        p.user_id,
-       p.platform_type,
+       p.platform_type
      FROM public.platforms p
      INNER JOIN public.platform_activities pa
        ON pa.platform_type = p.platform_type
