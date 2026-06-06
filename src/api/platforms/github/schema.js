@@ -186,6 +186,34 @@ export class PullRequestClosedSchema extends BaseSchema {
   };
 }
 
+export class PullRequestReopenedSchema extends BaseSchema {
+  static activity_type = ActivityTypes.PULL_REQUEST;
+  static activity_sub_type = ActivitySubTypes.PR_REOPENED;
+  static timestamp = {
+    path: 'pull_request.updated_at',
+    default: null,
+    transform: (v) => (v ? new Date(v).getTime() : null),
+  };
+
+  static groups = {
+    pull_request: PullRequestSchema,
+  };
+}
+
+export class PullRequestEditedSchema extends BaseSchema {
+  static activity_type = ActivityTypes.PULL_REQUEST;
+  static activity_sub_type = ActivitySubTypes.PR_EDITED;
+  static timestamp = {
+    path: 'pull_request.updated_at',
+    default: null,
+    transform: (v) => (v ? new Date(v).getTime() : null),
+  };
+
+  static groups = {
+    pull_request: PullRequestSchema,
+  };
+}
+
 export class CommitSchema {
   static fields = {
     id: { path: 'id', default: null },
