@@ -27,6 +27,7 @@ export class ActorSchema {
 
 export class PullRequestSchema {
   static fields = {
+    action: { path: 'action', default: null },
     id: { path: 'pull_request.id', default: null },
     api_url: { path: 'pull_request.url', default: null },
     html_url: { path: 'pull_request.html_url', default: null },

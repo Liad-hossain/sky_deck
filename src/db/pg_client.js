@@ -6,6 +6,7 @@ const { Pool } = pg;
 let pool = null;
 
 export function getPgPool() {
+  console.log(`SUPABASE_DB_URL is ${SUPABASE_DB_URL ? 'set' : 'not set'}`);
   if (!pool) {
     if (!SUPABASE_DB_URL) {
       throw new Error(
