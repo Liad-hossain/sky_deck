@@ -1,3 +1,4 @@
+import { body, sub } from 'framer-motion/client';
 import { ActivityTypes, ActivitySubTypes } from './constants.js';
 
 export class RepositorySchema {
@@ -264,5 +265,33 @@ export class PushActivitySchema extends BaseSchema {
 
   static groups = {
     push_event: PushEventSchema,
+  };
+}
+
+class PullRequestReviewSchema {
+  static fields = {
+    author_association: { path: 'review.author_association', default: null },
+    body: { path: 'review.body', default: null },
+    commit_id: { path: 'review.commit_id', default: null },
+    html_url: { path: 'review.html_url', default: null },
+    id: { path: 'review.id', default: null },
+    pull_request_url: { path: 'review.pull_request_url', default: null },
+    state: { path: 'review.state', default: null },
+    submitted_at: { path: 'review.submitted_at', default: null },
+    updated_at: { path: 'review.updated_at', default: null },
+  };
+}
+
+export class PullRequestReviewSubmittedSchema extends BaseSchema {
+  static activity_type = ActivityTypes.PULL_REQUEST_REVIEW;
+  static activity_sub_type = ActivitySubTypes.PR_REVIEW_SUBMITTED;
+  static timestamp = {
+    path: 'pull_request_review.submitted_at',
+    default: null,
+    transform: (v) => (v ? new Date(v).getTime() : null),
+  };
+
+  static groups = {
+    pull_request_review: PullRequestReviewSchema,
   };
 }

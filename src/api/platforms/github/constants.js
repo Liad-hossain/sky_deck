@@ -1,6 +1,7 @@
 export class ActivityTypes {
   static PULL_REQUEST = 'pull_request';
   static PUSH = 'push';
+  static PULL_REQUEST_REVIEW = 'pull_request_review';
 }
 
 export class ActivitySubTypes {
@@ -13,4 +14,7 @@ export class ActivitySubTypes {
 
   // Push sub-types
   static PUSH = 'push';
+
+  // Pull Request Review sub-types
+  static PR_REVIEW_SUBMITTED = 'submitted';
 }

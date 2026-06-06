@@ -5,6 +5,7 @@ import {
   PullRequestEditedSchema,
   PullRequestReopenedSchema,
   PushActivitySchema,
+  PullRequestReviewSubmittedSchema,
 } from './schema';
 import { ActivityTypes, ActivitySubTypes } from './constants';
 
@@ -25,6 +26,8 @@ export function parseGitHubWebhookPayload(eventType, rawPayload) {
       }
     } else if (eventType === ActivityTypes.PUSH) {
       document = PushActivitySchema.extract(rawPayload);
+    } else if (eventType === ActivityTypes.PULL_REQUEST_REVIEW) {
+      document = PullRequestReviewSubmittedSchema.extract(rawPayload);
     }
   } catch (e) {
     console.log('Error in parseGitHubWebhookPayload:', e);

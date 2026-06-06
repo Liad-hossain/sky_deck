@@ -32,5 +32,14 @@
         "description": "This event occurs when there is a push to a repository branch. This includes when a commit is pushed, when a commit tag is pushed, when a branch is deleted, when a tag is deleted, or when a repository is created from a template."
       }
     ]
+  },
+  "pull_request_review": {
+    "activity_type": "pull_request_review",
+    "sub_types": [
+      {
+        "name": "submitted",
+        "description": "A review on a pull request was submitted."
+      }
+    ]
   }
 }
