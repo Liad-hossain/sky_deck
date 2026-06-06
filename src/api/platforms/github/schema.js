@@ -156,3 +156,31 @@ export class PullRequestOpenedSchema extends BaseSchema {
     pull_request: PullRequestSchema,
   };
 }
+
+export class PullRequestSynchronizeSchema extends BaseSchema {
+  static activity_type = ActivityTypes.PULL_REQUEST;
+  static activity_sub_type = ActivitySubTypes.PR_SYNCHRONIZE;
+  static timestamp = {
+    path: 'pull_request.updated_at',
+    default: null,
+    transform: (v) => (v ? new Date(v).getTime() : null),
+  };
+
+  static groups = {
+    pull_request: PullRequestSchema,
+  };
+}
+
+export class PullRequestClosedSchema extends BaseSchema {
+  static activity_type = ActivityTypes.PULL_REQUEST;
+  static activity_sub_type = ActivitySubTypes.PR_CLOSED;
+  static timestamp = {
+    path: 'pull_request.closed_at',
+    default: null,
+    transform: (v) => (v ? new Date(v).getTime() : null),
+  };
+
+  static groups = {
+    pull_request: PullRequestSchema,
+  };
+}

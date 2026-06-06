@@ -250,7 +250,10 @@ export async function fetchSubTypesByActivityIds(activityIds = []) {
 
   try {
     const { data, error } = await getSubTypesByActivityIds(activityIds);
-    if (error) return { status: 500, body: { error } };
+    if (error) {
+      console.log('Error fetching sub types by activity ids:', error);
+      return { status: 500, body: { error: 'Something went wrong' } };
+    }
     let activitySubTypeMap = {};
     data.forEach((row) => {
       const { id, activity_id, sub_type, description, activity_type } = row;
