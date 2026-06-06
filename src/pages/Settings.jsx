@@ -26,7 +26,6 @@ import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../api/session/index.js';
 import toast from 'react-hot-toast';
 
-// Design tokens
 const PLATFORM_ICONS = {
   github: SiGithub,
   gitlab: SiGitlab,
@@ -175,7 +174,6 @@ const COLOR_MAP = {
   },
 };
 
-// Toggle switch
 function Toggle({ active, loading, onChange }) {
   return (
     <button
@@ -197,7 +195,6 @@ function Toggle({ active, loading, onChange }) {
   );
 }
 
-// Activity row (clickable list item)
 function ActivityRow({
   activity,
   platformId,
@@ -295,10 +292,12 @@ function ActivityRow({
   );
 }
 
-// Activity detail panel
-function ActivityDetail({ activity, platformId, onClose }) {
-  const [loading, setLoading] = useState(false);
-  const [active, setActive] = useState(activity.is_active);
+function ActivityDetail({ activity, onClose }) {
+  const [subTypes, setSubTypes] = useState([]);
+  const [subLoading, setSubLoading] = useState(true);
+  const [subError, setSubError] = useState(null);
+
+  const fetchedForId = useRef(null);
 
   const meta = ACTIVITY_META[activity.activity_type] ?? {
     label: activity.activity_type.replace(/_/g, ' '),
@@ -312,24 +311,27 @@ function ActivityDetail({ activity, platformId, onClose }) {
   const color = COLOR_MAP[meta.color] ?? COLOR_MAP.gray;
   const Icon = meta.icon;
 
-  const handleToggle = async () => {
-    setLoading(true);
-    const action = active ? 'remove' : 'add';
-    const { ok, error } = await apiFetch(
-      `/api/account/platforms/${platformId}/activities`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ activity_id: activity.id, action }),
+  useEffect(() => {
+    if (fetchedForId.current === activity.id) return;
+    fetchedForId.current = activity.id;
+
+    setSubTypes([]);
+    setSubLoading(true);
+    setSubError(null);
+
+    (async () => {
+      const { ok, data, error } = await apiFetch(
+        `/api/account/activity-sub-types?activity_ids=${activity.id}`
+      );
+      if (ok) {
+        const rows = data?.activities?.[0]?.sub_types ?? [];
+        setSubTypes(rows);
+      } else {
+        setSubError(error || 'Failed to load event types');
       }
-    );
-    setLoading(false);
-    if (ok) {
-      setActive((v) => !v);
-      toast.success(`Activity ${!active ? 'enabled' : 'disabled'}`);
-    } else {
-      toast.error(error || 'Failed to update');
-    }
-  };
+      setSubLoading(false);
+    })();
+  }, [activity.id]);
 
   return (
     <motion.div
@@ -361,71 +363,61 @@ function ActivityDetail({ activity, platformId, onClose }) {
       </div>
 
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
+        {/* Monitored Event Sub-types (live from API) */}
         <div className="border-white/8 rounded-xl border bg-white/[0.03] p-4">
-          <div className="mb-2 flex items-center gap-2">
-            <HiOutlineInformationCircle className="h-3.5 w-3.5 text-indigo-400" />
+          <div className="mb-3 flex items-center gap-2">
+            <HiOutlineBell className="h-3.5 w-3.5 text-indigo-400" />
             <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
-              About
+              Monitored Events
             </span>
-          </div>
-          <p className="text-sm leading-relaxed text-gray-300">
-            {meta.description}
-          </p>
-        </div>
-
-        <div className="border-white/8 rounded-xl border bg-white/[0.03] p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-white">
-                Enable Monitoring
-              </p>
-              <p className="mt-0.5 text-[11px] text-gray-500">
-                {active
-                  ? 'Currently tracking this activity.'
-                  : 'Not currently being tracked.'}
-              </p>
-            </div>
-            <Toggle active={active} loading={loading} onChange={handleToggle} />
-          </div>
-          <div className="mt-3 flex items-center gap-1.5 border-t border-white/5 pt-3">
-            <span
-              className={`h-2 w-2 rounded-full transition-colors ${active ? 'bg-emerald-400' : 'bg-gray-600'}`}
-            />
-            <span
-              className={`text-xs font-medium transition-colors ${active ? 'text-emerald-400' : 'text-gray-500'}`}
-            >
-              {active ? 'Active' : 'Inactive'}
-            </span>
-          </div>
-        </div>
-
-        {meta.subtypes?.length > 0 && (
-          <div className="border-white/8 rounded-xl border bg-white/[0.03] p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <HiOutlineBell className="h-3.5 w-3.5 text-indigo-400" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
-                Monitored Events
+            {!subLoading && subTypes.length > 0 && (
+              <span className="ml-auto rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-gray-500">
+                {subTypes.length}
               </span>
+            )}
+          </div>
+
+          {subLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
             </div>
+          ) : subError ? (
+            <p className="text-xs text-red-400">{subError}</p>
+          ) : subTypes.length === 0 ? (
+            <p className="text-xs text-gray-500">
+              No event types configured for this activity.
+            </p>
+          ) : (
             <div className="space-y-2">
-              {meta.subtypes.map((sub) => {
+              {subTypes.map((sub) => {
                 const subColor =
-                  COLOR_MAP[meta.subColors?.[sub] ?? 'gray'] ?? COLOR_MAP.gray;
+                  COLOR_MAP[meta.subColors?.[sub.sub_type] ?? 'gray'] ??
+                  COLOR_MAP.gray;
                 return (
                   <div
-                    key={sub}
-                    className={`flex items-center gap-2.5 rounded-lg border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide ${subColor.chip}`}
+                    key={sub.id}
+                    className={`rounded-lg border px-3 py-2.5 ${subColor.chip}`}
                   >
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full ${subColor.dot}`}
-                    />
-                    {meta.subLabels?.[sub] ?? sub.replace(/_/g, ' ')}
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`h-1.5 w-1.5 shrink-0 rounded-full ${subColor.dot}`}
+                      />
+                      <span className="text-[11px] font-bold uppercase tracking-wide">
+                        {meta.subLabels?.[sub.sub_type] ??
+                          sub.sub_type.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                    {sub.description && (
+                      <p className="mt-1.5 pl-3.5 text-[11px] font-normal leading-relaxed opacity-80">
+                        {sub.description}
+                      </p>
+                    )}
                   </div>
                 );
               })}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </motion.div>
   );
@@ -534,7 +526,6 @@ function PlatformSettingsView({ platform }) {
             >
               <ActivityDetail
                 activity={selected}
-                platformId={platform.id}
                 onClose={() => setSelected(null)}
               />
             </motion.div>

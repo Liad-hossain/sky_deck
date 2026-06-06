@@ -58,7 +58,6 @@ export async function handleWebhookPayload(rawPayload, headers = {}) {
         document
       );
 
-      // Generate LLM summary (non-blocking — falls back to null on error)
       const llmSummary = await generateActivitySummary(document);
       document.summary = llmSummary ?? document.summary ?? null;
 

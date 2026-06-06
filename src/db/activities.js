@@ -105,7 +105,7 @@ export async function getSubTypesByActivityIds(activityIds = []) {
   const { data, error } = await client
     .from('activity_sub_types')
     .select(
-      'id, activity_id, sub_type, description, platform_activities(activity_type)'
+      'id, activity_id, sub_type, description, platform_activities!activity_id(activity_type)'
     )
     .in('activity_id', activityIds);
 
