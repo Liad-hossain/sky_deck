@@ -55,7 +55,7 @@ export async function handleWebhookPayload(rawPayload, headers = {}) {
     if (document) {
       console.log(
         `Parsed GitHub webhook document for hook_id: ${hook_id}, event type: ${eventType}:`,
-        document
+        JSON.stringify(document)
       );
 
       const llmSummary = await generateActivitySummary(document);
