@@ -25,6 +25,26 @@ Replaced session-based authentication with stateless JWT tokens, removing over 4
 Fixed an unbounded memory growth issue in the Redis cache layer under high write load.
 Updated the README with clearer setup instructions and added a contributing guide.`;
 
+const PUSH_SYSTEM_PROMPT = `You are a technical summariser for a developer activity dashboard.
+You will receive a JSON object representing a GitHub push event. It contains a "ref" (the branch ref), a "commits" array (each with a "message" and lists of "added", "removed", "modified" files), and flags like "forced", "created", "deleted" (any field may be null or empty).
+Write one plain-text sentence summarising what was pushed — focus on the engineering work derived from the commit messages and changed files.
+
+Rules:
+- Hard limit: ${MAX_SUMMARY_CHARS} characters. Truncate with "…" if needed.
+- Plain text only — no markdown, no bullet points, no line breaks.
+- Derive the summary from commit messages (and file names if they add clarity). Aggregate multiple commits into one coherent sentence.
+- If "created" is true, note a new branch was created; if "deleted" is true, note a branch was deleted; if "forced" is true, note it was a force-push.
+- Do NOT mention the author, branch name, commit SHAs, or raw URLs.
+- Do NOT mention null values, empty arrays, or zero-value fields.
+- If there is only one commit, summarise that commit's work directly.
+- If there are multiple commits, describe the overall theme of the changes.
+
+Example outputs:
+Added user profile endpoints and updated the OpenAPI spec to reflect the new routes.
+Refactored the database migration runner to support rollback and dry-run modes across three files.
+Force-pushed a fix for the broken CI pipeline configuration.
+Initialised the project with base scaffolding, linting config, and a starter README.`;
+
 async function callGroq(systemPrompt, userMessage) {
   const apiKey = SKY_DECK_GROQ_API_KEY;
   if (!apiKey) {
@@ -77,6 +97,7 @@ async function callGroq(systemPrompt, userMessage) {
 export async function generateActivitySummary(document) {
   if (!document) return null;
   if (!document.activity_type) return null;
+  let summary = null;
 
   if (document.activity_type === ActivityTypes.PULL_REQUEST) {
     if (!document.pull_request) {
@@ -87,14 +108,23 @@ export async function generateActivitySummary(document) {
     }
 
     const userMessage = JSON.stringify(document.pull_request);
-
-    const summary = await callGroq(PULL_REQUEST_SYSTEM_PROMPT, userMessage);
+    summary = await callGroq(PULL_REQUEST_SYSTEM_PROMPT, userMessage);
     console.log(`[llm_tasks] Generated PR summary: ${summary}`);
-    return summary;
+  } else if (document.activity_type === ActivityTypes.PUSH) {
+    if (!document.push_event) {
+      console.warn(
+        '[llm_tasks] generateActivitySummary called with null push_event'
+      );
+      return null;
+    }
+
+    const userMessage = JSON.stringify(document.push_event);
+    summary = await callGroq(PUSH_SYSTEM_PROMPT, userMessage);
+    console.log(`[llm_tasks] Generated Push summary: ${summary}`);
   }
 
   console.log(
     `[llm_tasks] No LLM task defined for activity_type: ${document.activity_type}`
   );
-  return null;
+  return summary;
 }
