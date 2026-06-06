@@ -17,8 +17,18 @@ function toFields(data) {
 function fromFields(fields) {
   const obj = {};
   for (const [k, v] of Object.entries(fields)) {
-    if ('stringValue' in v) obj[k] = v.stringValue;
-    else if ('integerValue' in v) obj[k] = Number(v.integerValue);
+    if ('stringValue' in v) {
+      const s = v.stringValue;
+      if (s && (s[0] === '{' || s[0] === '[')) {
+        try {
+          obj[k] = JSON.parse(s);
+        } catch {
+          obj[k] = s; // not valid JSON — keep as plain string
+        }
+      } else {
+        obj[k] = s;
+      }
+    } else if ('integerValue' in v) obj[k] = Number(v.integerValue);
     else if ('booleanValue' in v) obj[k] = v.booleanValue;
     else if ('nullValue' in v) obj[k] = null;
     else obj[k] = v;
