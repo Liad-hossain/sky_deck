@@ -12,6 +12,7 @@ import Profile from './pages/Profile';
 import Integrations from './pages/Integrations';
 import GitHubCallback from './pages/GitHubCallback';
 import Settings from './pages/Settings';
+import GitHubActivities from './pages/GitHubActivities';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -115,6 +116,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Settings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/github-activities"
+            element={
+              <ProtectedRoute>
+                <GitHubActivities />
               </ProtectedRoute>
             }
           />

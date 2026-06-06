@@ -8,7 +8,6 @@ import {
   deletePlatform,
   fetchPlatformActivities,
   toggleActivity,
-  fetchActivitiesByPlatformType,
   fetchPlatformActivityFeeds,
   fetchSubTypesByActivityIds,
 } from './services.js';
@@ -88,16 +87,6 @@ api.post(
     const platformId = c.req.param('platformId');
     const body = await c.req.json().catch(() => ({}));
     const result = await toggleActivity(user.id, platformId, body);
-    return c.json(result.body, result.status);
-  })
-);
-
-// ── Activity Types by platform_type ──────────────
-api.get(
-  '/platforms/:platformType/activities',
-  authenticateUser(async (c, user) => {
-    const platformType = c.req.param('platformType');
-    const result = await fetchActivitiesByPlatformType(user.id, platformType);
     return c.json(result.body, result.status);
   })
 );

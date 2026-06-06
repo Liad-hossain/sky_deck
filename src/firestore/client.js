@@ -2,11 +2,16 @@ import {
   FIREBASE_PROJECT_ID,
   FIREBASE_CLIENT_EMAIL,
   FIREBASE_PRIVATE_KEY,
-} from '../api/env_variables';
+} from '../api/env_variables.js';
 
 // ── Token cache ──────────────────────────────────────────────────────────────
 let cachedToken = null;
 let tokenExpiresAt = 0; // epoch ms
+
+export function clearFirestoreTokenCache() {
+  cachedToken = null;
+  tokenExpiresAt = 0;
+}
 
 export async function getFirestoreClient() {
   const projectId = FIREBASE_PROJECT_ID;
@@ -33,7 +38,7 @@ export async function getFirestoreClient() {
     aud: 'https://oauth2.googleapis.com/token',
     iat: now,
     exp: now + 3600,
-    scope: 'https://www.googleapis.com/auth/datastore',
+    scope: 'https://www.googleapis.com/auth/cloud-platform',
   };
 
   const b64url = (obj) =>
@@ -82,6 +87,16 @@ export async function getFirestoreClient() {
   });
 
   const data = await res.json();
+
+  if (!data.access_token) {
+    console.error(
+      '[firestore/client] Token exchange failed:',
+      JSON.stringify(data)
+    );
+    throw new Error(
+      `Firestore token exchange failed: ${data.error_description ?? data.error ?? JSON.stringify(data)}`
+    );
+  }
 
   cachedToken = data.access_token;
   tokenExpiresAt = Date.now() + (data.expires_in ?? 0) * 1000;

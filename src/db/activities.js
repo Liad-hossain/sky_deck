@@ -1,18 +1,16 @@
 import { supabaseAdmin, supabaseAnon } from '../api/supabase_admin.js';
-import { getPgPool } from './pg_client.js';
 
 const client = supabaseAdmin ?? supabaseAnon;
 
 export async function fetchActivityById(activityId) {
   if (!client) return { data: null, error: 'Server not configured' };
-
   const { data, error } = await client
     .from('platform_activities')
     .select('id, platform_type, activity_type')
     .eq('id', activityId)
     .maybeSingle();
 
-  return { data, error: error?.message ?? null };
+  return { activity: data, error: error?.message ?? null };
 }
 
 export async function upsertActivity(platformType, activityType) {
@@ -27,7 +25,7 @@ export async function upsertActivity(platformType, activityType) {
     .select()
     .single();
 
-  return { data, error: error?.message ?? null };
+  return { activity: data, error: error?.message ?? null };
 }
 
 export async function upsertSubTypes(activityId, subTypes = []) {
@@ -71,33 +69,6 @@ export async function getActivitiesForPlatform(platformId, platformType) {
   );
 
   return { data: result, error: null };
-}
-
-export async function getPlatformTypeActivities(userId, platformType) {
-  const pool = getPgPool();
-
-  const { rows } = await pool.query(
-    `SELECT
-       p.id             AS platform_id,
-       p.platform_type,
-       p.title          AS platform_title,
-       pa.id             AS activity_id,
-       pa.activity_type
-     FROM public.platforms p
-     INNER JOIN public.platform_activities pa
-       ON pa.platform_type = p.platform_type
-     INNER JOIN public.platform_visible_activities pva
-       ON pva.activity_id = pa.id
-      AND pva.platform_id = p.id
-     WHERE p.user_id = $1
-       AND p.is_connected = true
-       AND p.is_archived = false
-       AND p.platform_type = $2
-     ORDER BY p.connected_at DESC`,
-    [userId, platformType]
-  );
-
-  return { data: rows, error: null };
 }
 
 export async function togglePlatformActivity(platformId, activityId, action) {

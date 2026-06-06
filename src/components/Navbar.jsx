@@ -6,6 +6,7 @@ import {
   HiOutlineLink,
   HiOutlineCog,
 } from 'react-icons/hi';
+import { SiGithub } from 'react-icons/si';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 
@@ -27,6 +28,7 @@ export default function Navbar() {
 
   const navLinks = [
     { to: '/dashboard', label: 'Dashboard', icon: HiViewGridAdd },
+    { to: '/github-activities', label: 'GitHub Activities', icon: SiGithub },
     { to: '/integrations', label: 'Integrations', icon: HiOutlineLink },
     { to: '/settings', label: 'Settings', icon: HiOutlineCog },
   ];

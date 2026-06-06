@@ -10,6 +10,12 @@ import {
 let cachedToken = null;
 let tokenExpiresAt = 0; // epoch ms
 
+// Clear cache whenever the module is reloaded (new deploy / cold start)
+export function clearFirebaseTokenCache() {
+  cachedToken = null;
+  tokenExpiresAt = 0;
+}
+
 async function getFirebaseAccessToken() {
   // Return cached token if still valid (with 60s buffer)
   if (cachedToken && Date.now() < tokenExpiresAt - 60_000) {
@@ -36,7 +42,8 @@ async function getFirebaseAccessToken() {
     aud: 'https://oauth2.googleapis.com/token',
     iat: now,
     exp: now + 3600,
-    scope: 'https://www.googleapis.com/auth/firebase.database',
+    scope:
+      'https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/userinfo.email',
   };
 
   const b64url = (obj) =>
