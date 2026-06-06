@@ -25,62 +25,6 @@ export class ActorSchema {
   };
 }
 
-export class PullRequestSchema {
-  static fields = {
-    action: { path: 'action', default: null },
-    id: { path: 'pull_request.id', default: null },
-    api_url: { path: 'pull_request.url', default: null },
-    html_url: { path: 'pull_request.html_url', default: null },
-    number: { path: 'pull_request.number', default: null },
-    patch_url: { path: 'pull_request.patch_url', default: null },
-    state: { path: 'pull_request.state', default: null },
-    locked: { path: 'pull_request.locked', default: false },
-    title: { path: 'pull_request.title', default: null },
-    body: { path: 'pull_request.body', default: null },
-    created_at: { path: 'pull_request.created_at', default: null },
-    updated_at: { path: 'pull_request.updated_at', default: null },
-    closed_at: { path: 'pull_request.closed_at', default: null },
-    merged_at: { path: 'pull_request.merged_at', default: null },
-    assignees: { path: 'pull_request.assignees', default: [] },
-    requested_reviewers: {
-      path: 'pull_request.requested_reviewers',
-      default: [],
-    },
-    requested_teams: { path: 'pull_request.requested_teams', default: [] },
-    labels: { path: 'pull_request.labels', default: [] },
-    is_draft: { path: 'pull_request.draft', default: false },
-    is_merged: { path: 'pull_request.merged', default: false },
-    mergeable: { path: 'pull_request.mergeable', default: false },
-    rebaseable: { path: 'pull_request.rebaseable', default: false },
-    mergeable_state: { path: 'pull_request.mergeable_state', default: null },
-    comments: { path: 'pull_request.comments', default: 0 },
-    review_comments: { path: 'pull_request.review_comments', default: 0 },
-    commits: { path: 'pull_request.commits', default: 0 },
-    additions: { path: 'pull_request.additions', default: 0 },
-    deletions: { path: 'pull_request.deletions', default: 0 },
-    changed_files: { path: 'pull_request.changed_files', default: 0 },
-    milestone: {
-      id: { path: 'pull_request.milestone.id', default: null },
-      title: { path: 'pull_request.milestone.title', default: null },
-    },
-    head: {
-      label: { path: 'pull_request.head.label', default: null },
-      ref: { path: 'pull_request.head.ref', default: null },
-    },
-    base: {
-      label: { path: 'pull_request.base.label', default: null },
-      ref: { path: 'pull_request.base.ref', default: null },
-    },
-    merged_by: {
-      id: { path: 'pull_request.merged_by.id', default: null },
-      name: { path: 'pull_request.merged_by.login', default: null },
-      avatar_url: { path: 'pull_request.merged_by.avatar_url', default: null },
-      html_url: { path: 'pull_request.merged_by.html_url', default: null },
-      api_url: { path: 'pull_request.merged_by.url', default: null },
-    },
-  };
-}
-
 export class BaseSchema {
   static activity_type = null;
   static activity_sub_type = null;
@@ -144,6 +88,62 @@ export class BaseSchema {
   }
 }
 
+export class PullRequestSchema {
+  static fields = {
+    action: { path: 'action', default: null },
+    id: { path: 'pull_request.id', default: null },
+    api_url: { path: 'pull_request.url', default: null },
+    html_url: { path: 'pull_request.html_url', default: null },
+    number: { path: 'pull_request.number', default: null },
+    patch_url: { path: 'pull_request.patch_url', default: null },
+    state: { path: 'pull_request.state', default: null },
+    locked: { path: 'pull_request.locked', default: false },
+    title: { path: 'pull_request.title', default: null },
+    body: { path: 'pull_request.body', default: null },
+    created_at: { path: 'pull_request.created_at', default: null },
+    updated_at: { path: 'pull_request.updated_at', default: null },
+    closed_at: { path: 'pull_request.closed_at', default: null },
+    merged_at: { path: 'pull_request.merged_at', default: null },
+    assignees: { path: 'pull_request.assignees', default: [] },
+    requested_reviewers: {
+      path: 'pull_request.requested_reviewers',
+      default: [],
+    },
+    requested_teams: { path: 'pull_request.requested_teams', default: [] },
+    labels: { path: 'pull_request.labels', default: [] },
+    is_draft: { path: 'pull_request.draft', default: false },
+    is_merged: { path: 'pull_request.merged', default: false },
+    mergeable: { path: 'pull_request.mergeable', default: false },
+    rebaseable: { path: 'pull_request.rebaseable', default: false },
+    mergeable_state: { path: 'pull_request.mergeable_state', default: null },
+    comments: { path: 'pull_request.comments', default: 0 },
+    review_comments: { path: 'pull_request.review_comments', default: 0 },
+    commits: { path: 'pull_request.commits', default: 0 },
+    additions: { path: 'pull_request.additions', default: 0 },
+    deletions: { path: 'pull_request.deletions', default: 0 },
+    changed_files: { path: 'pull_request.changed_files', default: 0 },
+    milestone: {
+      id: { path: 'pull_request.milestone.id', default: null },
+      title: { path: 'pull_request.milestone.title', default: null },
+    },
+    head: {
+      label: { path: 'pull_request.head.label', default: null },
+      ref: { path: 'pull_request.head.ref', default: null },
+    },
+    base: {
+      label: { path: 'pull_request.base.label', default: null },
+      ref: { path: 'pull_request.base.ref', default: null },
+    },
+    merged_by: {
+      id: { path: 'pull_request.merged_by.id', default: null },
+      name: { path: 'pull_request.merged_by.login', default: null },
+      avatar_url: { path: 'pull_request.merged_by.avatar_url', default: null },
+      html_url: { path: 'pull_request.merged_by.html_url', default: null },
+      api_url: { path: 'pull_request.merged_by.url', default: null },
+    },
+  };
+}
+
 export class PullRequestOpenedSchema extends BaseSchema {
   static activity_type = ActivityTypes.PULL_REQUEST;
   static activity_sub_type = ActivitySubTypes.PR_OPENED;
@@ -183,5 +183,58 @@ export class PullRequestClosedSchema extends BaseSchema {
 
   static groups = {
     pull_request: PullRequestSchema,
+  };
+}
+
+export class CommitSchema {
+  static fields = {
+    id: { path: 'id', default: null },
+    message: { path: 'message', default: null },
+    timestamp: { path: 'timestamp', default: null },
+    url: { path: 'url', default: null },
+    added: { path: 'added', default: [] },
+    removed: { path: 'removed', default: [] },
+    modified: { path: 'modified', default: [] },
+  };
+}
+
+export class PushEventSchema {
+  static fields = {
+    ref: { path: 'ref', default: null },
+    before: { path: 'before', default: null },
+    after: { path: 'after', default: null },
+    created: { path: 'created', default: false },
+    deleted: { path: 'deleted', default: false },
+    forced: { path: 'forced', default: false },
+    base_ref: { path: 'base_ref', default: null },
+    compare_url: { path: 'compare', default: null },
+    commits: {
+      path: 'commits',
+      default: [],
+      transform: (commits) =>
+        (commits ?? []).map((c) =>
+          BaseSchema._resolveFields(c, CommitSchema.fields)
+        ),
+    },
+  };
+}
+
+export class PushActivitySchema extends BaseSchema {
+  static activity_type = ActivityTypes.PUSH;
+  static activity_sub_type = ActivitySubTypes.PUSH_EVENT;
+  static timestamp = {
+    path: 'head_commit.timestamp',
+    default: null,
+    transform: (v) => {
+      if (!v) return null;
+      const hasOffset = /[Zz]|[+\-]\d{2}:?\d{2}$/.test(v);
+      const normalized = hasOffset ? v : `${v}Z`;
+      const ms = new Date(normalized).getTime();
+      return isNaN(ms) ? null : ms;
+    },
+  };
+
+  static groups = {
+    push_event: PushEventSchema,
   };
 }
