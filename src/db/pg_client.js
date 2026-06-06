@@ -6,13 +6,9 @@ const { Pool } = pg;
 let pool = null;
 
 export function getPgPool() {
-  console.log(`SUPABASE_DB_URL is ${SUPABASE_DB_URL ? 'set' : 'not set'}`);
   if (!pool) {
     if (!SUPABASE_DB_URL) {
-      throw new Error(
-        '[pg_client] SUPABASE_DB_URL is not set. ' +
-          'Add it to Netlify → Site settings → Environment variables.'
-      );
+      throw new Error('[pg_client] SUPABASE_DB_URL is not set. ');
     }
 
     const connStr = SUPABASE_DB_URL.replace(/[?&]sslmode=[^&]*/g, '');

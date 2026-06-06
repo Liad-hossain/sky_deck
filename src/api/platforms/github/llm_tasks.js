@@ -1,4 +1,4 @@
-import { GROQ_API_KEY } from '../../env_variables.js';
+import { SKY_DECK_GROQ_API_KEY } from '../../env_variables.js';
 import { ActivityTypes } from './constants.js';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
@@ -26,9 +26,11 @@ Fixed an unbounded memory growth issue in the Redis cache layer under high write
 Updated the README with clearer setup instructions and added a contributing guide.`;
 
 async function callGroq(systemPrompt, userMessage) {
-  const apiKey = GROQ_API_KEY;
+  const apiKey = SKY_DECK_GROQ_API_KEY;
   if (!apiKey) {
-    console.warn('[llm_tasks] GROQ_API_KEY is not set — skipping LLM summary.');
+    console.warn(
+      '[llm_tasks] SKY_DECK_GROQ_API_KEY is not set — skipping LLM summary.'
+    );
     return null;
   }
 
