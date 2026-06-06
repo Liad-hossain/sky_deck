@@ -43,7 +43,8 @@ jobs:
             FIREBASE_CLIENT_EMAIL: "${{ secrets.FIREBASE_CLIENT_EMAIL }}",
             FIREBASE_PRIVATE_KEY: "${FB_KEY_B64}",
             FIREBASE_DATABASE_URL: "${{ secrets.FIREBASE_DATABASE_URL }}",
-            SKY_DECK_APP_URL: "${{ secrets.SKY_DECK_APP_URL }}"
+            SKY_DECK_APP_URL: "${{ secrets.SKY_DECK_APP_URL }}",
+            SKY_DECK_GROQ_API_KEY: "${{ secrets.SKY_DECK_GROQ_API_KEY }}"
           };
           EOF
           sed -i 's/^[[:space:]]*//' src/api/_secrets.js

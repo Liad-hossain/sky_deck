@@ -68,19 +68,10 @@ export async function handleWebhookPayload(rawPayload, headers = {}) {
           const result = await fetchPlatformByInstallationId(installationId);
           platform = result.platform;
         } catch (dbErr) {
-          if (
-            dbErr.code === '28P01' || // wrong password
-            dbErr.message?.includes('SUPABASE_DB_URL') // env var missing
-          ) {
-            console.error(
-              '[handlers] DB auth failed — SUPABASE_DB_URL is missing'
-            );
-          } else {
-            console.error(
-              '[handlers] fetchPlatformByInstallationId error:',
-              dbErr
-            );
-          }
+          console.log(
+            `Database error fetching platform for installation_id ${installationId}:`,
+            dbErr
+          );
           return true;
         }
 
