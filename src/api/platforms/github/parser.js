@@ -2,8 +2,8 @@ import { PullRequestOpenedSchema } from './schema';
 import { ActivityTypes, ActivitySubTypes } from './constants';
 
 export function parseGitHubWebhookPayload(eventType, rawPayload) {
+  let activity = null;
   try {
-    let activity = null;
     if (
       eventType === ActivityTypes.PULL_REQUEST &&
       rawPayload?.action === ActivitySubTypes.PR_OPENED

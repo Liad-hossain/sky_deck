@@ -16,7 +16,6 @@ import {
   fetchActivityById,
   getActivitiesForPlatform,
   togglePlatformActivity,
-  getPlatformTypeActivities,
   getSubTypesByActivityIds,
 } from '../../db/activities.js';
 
@@ -240,45 +239,6 @@ export async function toggleActivity(userId, platformId, body) {
     return { status: 200, body: { success: true } };
   } catch (e) {
     console.log('Error toggling platform activity:', e);
-    return { status: 500, body: { error: 'Something went wrong' } };
-  }
-}
-
-export async function fetchActivitiesByPlatformType(userId, platformType) {
-  try {
-    const { data, error } = await getPlatformTypeActivities(
-      userId,
-      platformType
-    );
-    let platformActivityMap = {};
-    data.forEach((row) => {
-      const {
-        platform_id,
-        platform_type,
-        platform_title,
-        activity_id,
-        activity_type,
-      } = row;
-
-      if (!platformActivityMap[platform_id]) {
-        platformActivityMap[platform_id] = {
-          platform_id,
-          platform_type,
-          platform_title,
-          activities: [],
-        };
-      }
-
-      platformActivityMap[platform_id].activities.push({
-        activity_id,
-        activity_type,
-      });
-    });
-    const platformActivities = Object.values(platformActivityMap);
-    if (error) return { status: 500, body: { error } };
-    return { status: 200, body: { platform_activities: platformActivities } };
-  } catch (e) {
-    console.log('Error fetching activities with sub types:', e);
     return { status: 500, body: { error: 'Something went wrong' } };
   }
 }
