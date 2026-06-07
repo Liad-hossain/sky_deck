@@ -7,23 +7,32 @@ const GROQ_MODEL = 'llama-3.3-70b-versatile';
 const MAX_SUMMARY_CHARS = 500;
 
 const PULL_REQUEST_SYSTEM_PROMPT = `You are a technical summariser for a developer activity dashboard.
-You will receive a JSON object representing a GitHub pull request (any field may be null or 0 if unavailable).
-Write one plain-text sentence describing what was done in the pull request — focus purely on the engineering work, not who did it.
+You will receive a JSON object representing a GitHub pull request event (any field may be null or 0 if unavailable).
+The object contains an "action" field that tells you what happened. Use it to choose the opening verb of your summary.
+
+Action → required opening:
+- "opened"      → start with "Opened a pull request …"
+- "closed" + is_merged=true  → start with "Merged a pull request …"
+- "closed" + is_merged=false → start with "Closed a pull request …"
+- "reopened"    → start with "Reopened a pull request …"
+- "synchronize" → start with "Updated a pull request with new commits …"
+- anything else → start with "Updated a pull request …"
 
 Rules:
 - Hard limit: ${MAX_SUMMARY_CHARS} characters. Truncate with "…" if needed.
 - Plain text only — no markdown, no bullet points, no line breaks.
-- Describe the WORK: use the title, body (if present), and labels to explain what was changed or fixed.
-- If body is present and informative, use it to elaborate the task (e.g. "replaced session auth with JWT", "fixed unbounded memory growth in the cache layer").
-- If body is null or empty, infer the purpose from the title alone — silently, never say the body is missing.
-- Do NOT mention the author, PR number, branch names, or who submitted it.
-- Do NOT mention raw URLs, null values, or zero-value stats.
-- Omit diff stats unless they strongly convey scope (e.g. a massive rewrite).
+- After the opening verb, describe the WORK: use the title, body (if present), and labels.
+- If body is present and informative, use it to elaborate (e.g. "… replacing session auth with JWT").
+- If body is null or empty, infer from the title alone — never say the body is missing.
+- Do NOT mention the author, PR number, branch names, or raw URLs.
+- Do NOT mention null values or zero-value stats.
 
 Example outputs:
-Replaced session-based authentication with stateless JWT tokens, removing over 400 lines of legacy middleware.
-Fixed an unbounded memory growth issue in the Redis cache layer under high write load.
-Updated the README with clearer setup instructions and added a contributing guide.`;
+Opened a pull request replacing session-based authentication with stateless JWT tokens.
+Merged a pull request fixing an unbounded memory growth issue in the Redis cache layer.
+Closed a pull request that added experimental gRPC support without merging.
+Reopened a pull request adding dark-mode support after resolving the CSS conflicts.
+Updated a pull request with new commits addressing the review feedback on input validation.`;
 
 const PULL_REQUEST_EDITED_SYSTEM_PROMPT = `You are a technical summariser for a developer activity dashboard.
 You will receive a JSON object representing a GitHub pull request "edited" event with these fields:
@@ -71,18 +80,21 @@ Initialised the project with base scaffolding, linting config, and a starter REA
 
 const PULL_REQUEST_REVIEW_SYSTEM_PROMPT = `You are a technical summariser for a developer activity dashboard.
 You will receive a JSON object representing a submitted GitHub pull request review with these fields (any may be null):
-- "state": the review outcome — "approved", "changes_requested", or "commented".
+- "state": the review outcome — exactly one of: "approved", "changes_requested", "commented".
 - "body": the reviewer's written feedback (may be null or empty).
 - "pull_request_title": the title of the pull request being reviewed (may be null).
-- "author_association": the reviewer's relationship to the repo (e.g. OWNER, COLLABORATOR, CONTRIBUTOR).
-Write one plain-text sentence summarising the review outcome.
+- "author_association": the reviewer's relationship to the repo (e.g. OWNER, COLLABORATOR).
+
+The "state" field is the primary signal — it MUST determine the first word(s) of your summary:
+- "approved"           → must start with "Approved …"
+- "changes_requested"  → must start with "Requested changes to …"
+- "commented"          → must start with "Left a comment on …"
 
 Rules:
 - Hard limit: ${MAX_SUMMARY_CHARS} characters. Truncate with "…" if needed.
 - Plain text only — no markdown, no bullet points, no line breaks.
-- Lead with the outcome verb based on "state": "Approved …", "Requested changes to …", or "Left a comment on …".
-- If "body" is present and informative, incorporate the key feedback point into the sentence.
-- If "body" is null or empty, base the summary on "state" and "pull_request_title" alone — never say the body is missing.
+- After the mandatory opening, describe the pull request using "pull_request_title" and, if "body" is informative, incorporate the key feedback point.
+- If "body" is null or empty, base the rest of the summary on "state" and "pull_request_title" alone — never say the body is missing.
 - Do NOT mention reviewer name, review ID, commit SHAs, raw URLs, or author_association.
 - Do NOT mention null values or empty strings.
 
@@ -92,26 +104,26 @@ Requested changes to the database migration runner, noting the rollback path han
 Left a comment on the rate-limiter PR questioning whether the exponential backoff caps at a safe ceiling.`;
 
 async function callGroq(systemPrompt, userMessage) {
-  const apiKey = SKY_DECK_GROQ_API_KEY;
-  if (!apiKey) {
-    console.warn(
-      '[llm_tasks] SKY_DECK_GROQ_API_KEY is not set — skipping LLM summary.'
-    );
-    return null;
-  }
-
-  const body = {
-    model: GROQ_MODEL,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userMessage },
-    ],
-    temperature: 0.3, // low variance for consistent one-liners
-    max_tokens: 180, // headroom for a richer ~300-char descriptive sentence
-    stream: false,
-  };
-
   try {
+    const apiKey = SKY_DECK_GROQ_API_KEY;
+    if (!apiKey) {
+      console.warn(
+        '[llm_tasks] SKY_DECK_GROQ_API_KEY is not set — skipping LLM summary.'
+      );
+      return null;
+    }
+
+    const body = {
+      model: GROQ_MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
+      temperature: 0.3, // low variance for consistent one-liners
+      max_tokens: 180, // headroom for a richer ~300-char descriptive sentence
+      stream: false,
+    };
+
     const res = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
@@ -141,53 +153,61 @@ async function callGroq(systemPrompt, userMessage) {
 }
 
 export async function generateActivitySummary(document) {
-  if (!document) return null;
-  if (!document.activity_type) return null;
-  let summary = null;
+  try {
+    if (!document) return null;
+    if (!document.activity_type) return null;
+    let summary = null;
 
-  if (document.activity_type === ActivityTypes.PULL_REQUEST) {
-    if (!document.pull_request) {
-      console.warn(
-        '[llm_tasks] generateActivitySummary called with null pull_request'
-      );
-      return null;
-    }
+    if (document.activity_type === ActivityTypes.PULL_REQUEST) {
+      if (!document.pull_request) {
+        console.warn(
+          '[llm_tasks] generateActivitySummary called with null pull_request'
+        );
+        return null;
+      }
 
-    if (document.activity_sub_type === ActivitySubTypes.PR_EDITED) {
-      // For edited events focus the model only on what changed
-      const userMessage = JSON.stringify({
-        title: document.pull_request.title,
-        changes: document.pull_request.changes,
-      });
-      summary = await callGroq(PULL_REQUEST_EDITED_SYSTEM_PROMPT, userMessage);
+      if (document.activity_sub_type === ActivitySubTypes.PR_EDITED) {
+        // For edited events focus the model only on what changed
+        const userMessage = JSON.stringify({
+          title: document.pull_request.title,
+          changes: document.pull_request.changes,
+        });
+        summary = await callGroq(
+          PULL_REQUEST_EDITED_SYSTEM_PROMPT,
+          userMessage
+        );
+      } else {
+        const userMessage = JSON.stringify(document.pull_request);
+        summary = await callGroq(PULL_REQUEST_SYSTEM_PROMPT, userMessage);
+      }
+    } else if (document.activity_type === ActivityTypes.PUSH) {
+      if (!document.push_event) {
+        console.warn(
+          '[llm_tasks] generateActivitySummary called with null push_event'
+        );
+        return null;
+      }
+
+      const userMessage = JSON.stringify(document.push_event);
+      summary = await callGroq(PUSH_SYSTEM_PROMPT, userMessage);
+    } else if (document.activity_type === ActivityTypes.PULL_REQUEST_REVIEW) {
+      if (!document.pull_request_review) {
+        console.warn(
+          '[llm_tasks] generateActivitySummary called with null pull_request_review'
+        );
+        return null;
+      }
+
+      const userMessage = JSON.stringify(document.pull_request_review);
+      summary = await callGroq(PULL_REQUEST_REVIEW_SYSTEM_PROMPT, userMessage);
     } else {
-      const userMessage = JSON.stringify(document.pull_request);
-      summary = await callGroq(PULL_REQUEST_SYSTEM_PROMPT, userMessage);
-    }
-  } else if (document.activity_type === ActivityTypes.PUSH) {
-    if (!document.push_event) {
-      console.warn(
-        '[llm_tasks] generateActivitySummary called with null push_event'
+      console.log(
+        `[llm_tasks] No LLM task defined for activity_type: ${document.activity_type}`
       );
-      return null;
     }
-
-    const userMessage = JSON.stringify(document.push_event);
-    summary = await callGroq(PUSH_SYSTEM_PROMPT, userMessage);
-  } else if (document.activity_type === ActivityTypes.PULL_REQUEST_REVIEW) {
-    if (!document.pull_request_review) {
-      console.warn(
-        '[llm_tasks] generateActivitySummary called with null pull_request_review'
-      );
-      return null;
-    }
-
-    const userMessage = JSON.stringify(document.pull_request_review);
-    summary = await callGroq(PULL_REQUEST_REVIEW_SYSTEM_PROMPT, userMessage);
-  } else {
-    console.log(
-      `[llm_tasks] No LLM task defined for activity_type: ${document.activity_type}`
-    );
+    return summary;
+  } catch (err) {
+    console.error('[llm_tasks] generateActivitySummary failed:', err);
+    return null;
   }
-  return summary;
 }

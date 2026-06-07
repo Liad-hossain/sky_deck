@@ -17,7 +17,7 @@ async function syncGitHubActivities() {
   for (const [, entry] of Object.entries(activitiesData)) {
     const { activity_type, sub_types } = entry;
 
-    const { data: activity, error: actError } = await upsertActivity(
+    const { activity, error: actError } = await upsertActivity(
       platformType,
       activity_type
     );
