@@ -76,16 +76,6 @@ async function shouldProcessWebhook(rawPayload, headers) {
       return null;
     }
 
-    if (
-      rawPayload.sender.id !==
-      platform?.platform_metadata?.installation_details?.account?.id
-    ) {
-      console.log(
-        `GitHub webhook sender ID ${rawPayload.sender.id} does not match installation account ID ${platform?.platform_metadata?.installation_details?.account?.id} for hook_id ${hook_id}, event type ${eventType}.`
-      );
-      return null;
-    }
-
     if ((await countGithubWebhookEntries(hook_id)) > 0) {
       console.log(
         `Duplicate GitHub webhook received for hook_id ${hook_id}, skipping processing.`

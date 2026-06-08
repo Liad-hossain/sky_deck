@@ -54,6 +54,7 @@ export async function insertOrUpdatePlatformConnection(
         is_archived: false,
         connected_at: now,
         disconnected_at: null,
+        archived_at: null,
         updated_at: now,
       })
       .eq('id', existing.id);
