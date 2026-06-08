@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>You're Invited to Sky Deck</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          'Inter',
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+        background-color: #0f0c29;
+        color: #e2e8f0;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .wrapper {
+        max-width: 600px;
+        margin: 40px auto;
+        padding: 0 16px 40px;
+      }
+
+      /* Header */
+      .header {
+        background: linear-gradient(
+          135deg,
+          #6366f1 0%,
+          #a855f7 50%,
+          #ec4899 100%
+        );
+        border-radius: 20px 20px 0 0;
+        padding: 40px 48px 36px;
+        text-align: center;
+      }
+
+      .logo {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 24px;
+      }
+
+      .logo-icon {
+        width: 44px;
+        height: 44px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        font-weight: 800;
+        color: #fff;
+        letter-spacing: -1px;
+      }
+
+      .logo-text {
+        font-size: 22px;
+        font-weight: 800;
+        color: #fff;
+        letter-spacing: -0.5px;
+      }
+
+      .header h1 {
+        font-size: 28px;
+        font-weight: 800;
+        color: #fff;
+        line-height: 1.25;
+        margin-bottom: 10px;
+      }
+
+      .header p {
+        font-size: 15px;
+        color: rgba(255, 255, 255, 0.8);
+        line-height: 1.6;
+      }
+
+      /* Body card */
+      .card {
+        background: #1a1730;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-top: none;
+        border-radius: 0 0 20px 20px;
+        padding: 40px 48px;
+      }
+
+      .greeting {
+        font-size: 16px;
+        color: #cbd5e1;
+        line-height: 1.7;
+        margin-bottom: 32px;
+      }
+
+      .greeting strong {
+        color: #e2e8f0;
+      }
+
+      /* Platform info box */
+      .platform-box {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        background: rgba(99, 102, 241, 0.08);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 32px;
+      }
+
+      .platform-icon {
+        width: 40px;
+        height: 40px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .platform-icon svg {
+        width: 22px;
+        height: 22px;
+        fill: #e2e8f0;
+      }
+
+      .platform-info h3 {
+        font-size: 14px;
+        font-weight: 700;
+        color: #e2e8f0;
+        margin-bottom: 2px;
+      }
+
+      .platform-info p {
+        font-size: 12px;
+        color: #64748b;
+      }
+
+      /* CTA Button */
+      .cta-wrap {
+        text-align: center;
+        margin: 32px 0;
+      }
+
+      .cta-btn {
+        display: inline-block;
+        background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
+        color: #fff !important;
+        text-decoration: none;
+        font-size: 16px;
+        font-weight: 700;
+        padding: 16px 40px;
+        border-radius: 14px;
+        letter-spacing: 0.3px;
+        box-shadow: 0 8px 32px rgba(99, 102, 241, 0.4);
+      }
+
+      /* Divider */
+      .divider {
+        border: none;
+        border-top: 1px solid rgba(255, 255, 255, 0.07);
+        margin: 32px 0;
+      }
+
+      /* Fallback link box */
+      .fallback {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin-bottom: 32px;
+      }
+
+      .fallback p {
+        font-size: 13px;
+        color: #64748b;
+        line-height: 1.6;
+        margin-bottom: 8px;
+      }
+
+      .fallback a {
+        font-size: 12px;
+        color: #818cf8;
+        word-break: break-all;
+        line-height: 1.5;
+      }
+
+      /* Notice */
+      .notice {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        background: rgba(99, 102, 241, 0.06);
+        border: 1px solid rgba(99, 102, 241, 0.15);
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 32px;
+      }
+
+      .notice-icon {
+        font-size: 18px;
+        line-height: 1;
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
+
+      .notice p {
+        font-size: 13px;
+        color: #a5b4fc;
+        line-height: 1.6;
+      }
+
+      /* Footer */
+      .footer {
+        text-align: center;
+        padding-top: 32px;
+      }
+
+      .footer p {
+        font-size: 12px;
+        color: #475569;
+        line-height: 1.6;
+      }
+
+      .footer a {
+        color: #818cf8;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <!-- Header -->
+      <div class="header">
+        <div class="logo">
+          <span class="logo-icon">SD</span>
+          <span class="logo-text">Sky Deck</span>
+        </div>
+        <h1>You're Invited! 🎉</h1>
+        <p>A team member wants you to join their platform on Sky Deck</p>
+      </div>
+
+      <!-- Card body -->
+      <div class="card">
+        <p class="greeting">
+          <strong>{{INVITER_NAME}}</strong> has invited you to join the
+          <strong>{{PLATFORM_TITLE}}</strong> platform on Sky Deck for activity
+          tracking and collaboration.
+        </p>
+
+        <!-- Platform info -->
+        <div class="platform-box">
+          <div class="platform-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"
+              />
+            </svg>
+          </div>
+          <div class="platform-info">
+            <h3>{{PLATFORM_TITLE}}</h3>
+            <p>GitHub Organization · Activity Tracking</p>
+          </div>
+        </div>
+
+        <!-- CTA -->
+        <div class="cta-wrap">
+          <a href="{{INVITE_LINK}}" class="cta-btn">Accept Invitation</a>
+        </div>
+
+        <hr class="divider" />
+
+        <!-- Fallback link -->
+        <div class="fallback">
+          <p>
+            If the button doesn't work, copy and paste this link into your
+            browser:
+          </p>
+          <a href="{{INVITE_LINK}}">{{INVITE_LINK}}</a>
+        </div>
+
+        <!-- Notice -->
+        <div class="notice">
+          <span class="notice-icon">ℹ️</span>
+          <p>
+            You'll be asked to connect your GitHub account to verify your
+            identity. This is a one-time step to link your GitHub profile with
+            the organization platform.
+          </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+          <p>
+            If you didn't expect this invitation, you can safely ignore this
+            email.
+          </p>
+          <p style="margin-top: 12px">
+            &copy; Sky Deck &mdash; Activity Tracking Platform
+          </p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

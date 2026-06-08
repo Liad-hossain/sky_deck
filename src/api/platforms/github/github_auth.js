@@ -124,3 +124,84 @@ export async function fetchGitHubInstallationDetails(installationId) {
   const installation = await res.json();
   return { data: installation, error: null, status: 200 };
 }
+
+export async function fetchGitHubUserFromOAuthCode(code, redirectUri) {
+  if (!code) {
+    return { data: null, error: 'Missing code', status: 400 };
+  }
+
+  const url = `https://github.com/login/oauth/access_token?client_id=${GITHUB_CLIENT_ID}&client_secret=${GITHUB_CLIENT_SECRET}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${encodeURIComponent(code)}`;
+
+  const tokenRes = await fetch(url, {
+    method: 'GET',
+    headers: { Accept: 'application/vnd.github+json' },
+  });
+
+  const tokenData = await tokenRes.json().catch(() => null);
+  if (!tokenRes.ok || !tokenData?.access_token) {
+    return {
+      data: null,
+      error:
+        tokenData?.error_description ||
+        tokenData?.error ||
+        `Token exchange failed (${tokenRes.status})`,
+      status: tokenRes.status,
+    };
+  }
+
+  const userRes = await fetch('https://api.github.com/user', {
+    headers: {
+      Authorization: `Bearer ${tokenData.access_token}`,
+      Accept: 'application/vnd.github+json',
+    },
+  });
+
+  const userData = await userRes.json().catch(() => null);
+  if (!userRes.ok || !userData?.id) {
+    return {
+      data: null,
+      error:
+        userData?.message || `Failed to fetch github user (${userRes.status})`,
+      status: userRes.status,
+    };
+  }
+
+  return {
+    data: {
+      github_user_id: userData.id,
+      github_login: userData.login ?? null,
+    },
+    error: null,
+    status: 200,
+  };
+}
+
+export async function checkGitHubOrgMembership(
+  installationId,
+  orgLogin,
+  githubLogin
+) {
+  const { data: tokenData, error: tokenErr } =
+    await fetchInstallationAccessToken(installationId);
+  if (tokenErr || !tokenData?.accessToken) {
+    return {
+      isMember: false,
+      error: tokenErr ?? 'Failed to obtain installation access token',
+    };
+  }
+
+  const res = await fetch(
+    `https://api.github.com/orgs/${orgLogin}/members/${githubLogin}`,
+    {
+      headers: {
+        Authorization: `Bearer ${tokenData.accessToken}`,
+        Accept: 'application/vnd.github+json',
+      },
+    }
+  );
+
+  if (res.status === 204) return { isMember: true, error: null };
+  if (res.status === 404) return { isMember: false, error: null };
+
+  return { isMember: false, error: null };
+}

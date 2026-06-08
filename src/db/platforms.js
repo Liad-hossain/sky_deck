@@ -93,7 +93,19 @@ export async function fetchPlatformById(userId, platformId) {
   return { platform: data ?? null, error: error ?? null };
 }
 
-export async function fetchPlatformByInstallationId(installationId) {
+export async function fetchPlatformByAnyId(platformId) {
+  const { data, error } = await client
+    .from('platforms')
+    .select(
+      'id, user_id, primary_id, platform_type, title, access_token, refresh_token, user_metadata, platform_metadata, is_connected, connected_at, is_archived'
+    )
+    .eq('id', platformId)
+    .eq('is_archived', false)
+    .maybeSingle();
+  return { platform: data ?? null, error: error ?? null };
+}
+
+export async function fetchPlatformsByInstallationId(installationId) {
   const pool = getPgPool();
   const { rows } = await pool.query(
     `SELECT
@@ -114,7 +126,7 @@ export async function fetchPlatformByInstallationId(installationId) {
     [String(installationId)]
   );
 
-  return { platform: rows[0] ?? null, error: null };
+  return { platforms: rows ?? null, error: null };
 }
 
 export async function updatePlatformById(userId, id, update_dict) {
@@ -153,4 +165,55 @@ export async function archivePlatformById(userId, platformId) {
     .eq('user_id', userId)
     .eq('is_connected', false);
   return { error: error ?? null };
+}
+
+export async function fetchPlatformUsers(primaryId, platformType) {
+  const { data, error } = await client
+    .from('platforms')
+    .select(
+      'id, user_id, primary_id, platform_type, title, user_metadata, is_connected, connected_at, profiles!inner(id, email, full_name, avatar_url)'
+    )
+    .eq('primary_id', primaryId)
+    .eq('platform_type', platformType)
+    .eq('is_archived', false)
+    .order('connected_at', { ascending: false });
+
+  return { users: data ?? [], error: error ?? null };
+}
+
+export async function createOrUpdateInvitedPlatform(
+  targetUserId,
+  sourcePlatform,
+  githubUserId
+) {
+  const now = new Date().toISOString();
+  const mergedUserMetadata = {
+    ...(sourcePlatform?.user_metadata ?? {}),
+    github_user_id: githubUserId,
+    user_association: 'contributor',
+  };
+
+  const row = {
+    user_id: targetUserId,
+    primary_id: sourcePlatform.primary_id,
+    platform_type: sourcePlatform.platform_type,
+    title: sourcePlatform.title,
+    access_token: sourcePlatform.access_token ?? null,
+    refresh_token: sourcePlatform.refresh_token ?? null,
+    user_metadata: mergedUserMetadata,
+    platform_metadata: sourcePlatform.platform_metadata ?? {},
+    is_connected: sourcePlatform.is_connected ?? true,
+    is_archived: false,
+    connected_at: sourcePlatform.connected_at ?? now,
+    disconnected_at: null,
+    updated_at: now,
+  };
+
+  const { data, error } = await client
+    .from('platforms')
+    .upsert(row, { onConflict: 'user_id,primary_id,platform_type' })
+    .select('id, user_id, primary_id, platform_type, title, user_metadata')
+    .maybeSingle();
+
+  return { platform: data ?? null, error: error ?? null };
 }

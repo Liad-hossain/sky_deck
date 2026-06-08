@@ -11,6 +11,7 @@ import ResetPassword from './pages/ResetPassword';
 import Profile from './pages/Profile';
 import Integrations from './pages/Integrations';
 import GitHubCallback from './pages/GitHubCallback';
+import GitHubPlatformInvite from './pages/GitHubPlatformInvite';
 import Settings from './pages/Settings';
 import GitHubActivities from './pages/GitHubActivities';
 
@@ -108,6 +109,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <GitHubCallback />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/github/:platformId/invite"
+            element={
+              <ProtectedRoute>
+                <GitHubPlatformInvite />
               </ProtectedRoute>
             }
           />
