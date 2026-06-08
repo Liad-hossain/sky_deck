@@ -39,14 +39,14 @@ async function shouldProcessWebhook(rawPayload, headers) {
 
     if (!isValid) {
       console.log(`Invalid GitHub webhook payload for headers:`, headers);
-      return false;
+      return null;
     }
 
     if (!rawPayload.installation || !rawPayload.installation.id) {
       console.log(
         `GitHub webhook payload missing installation information for hook_id ${hook_id}, event type ${eventType}.`
       );
-      return false;
+      return null;
     }
 
     let platform = null;
@@ -55,12 +55,25 @@ async function shouldProcessWebhook(rawPayload, headers) {
         rawPayload.installation.id
       );
       platform = result.platform;
+      if (result.error) {
+        console.log(
+          `Error fetching platform for installation_id ${rawPayload.installation.id}:`,
+          result.error
+        );
+      }
     } catch (dbErr) {
       console.log(
-        `Database error fetching platform for installation_id ${installationId}:`,
+        `Database error fetching platform for installation_id ${rawPayload.installation.id}:`,
         dbErr
       );
-      return false;
+      return null;
+    }
+
+    if (!platform) {
+      console.log(
+        `No platform found for installation_id ${rawPayload.installation.id}, hook_id ${hook_id}.`
+      );
+      return null;
     }
 
     if (
@@ -70,21 +83,21 @@ async function shouldProcessWebhook(rawPayload, headers) {
       console.log(
         `GitHub webhook sender ID ${rawPayload.sender.id} does not match installation account ID ${platform?.platform_metadata?.installation_details?.account?.id} for hook_id ${hook_id}, event type ${eventType}.`
       );
-      return false;
+      return null;
     }
 
     if ((await countGithubWebhookEntries(hook_id)) > 0) {
       console.log(
         `Duplicate GitHub webhook received for hook_id ${hook_id}, skipping processing.`
       );
-      return false;
+      return null;
     }
-  } catch (e) {
-    console.log('Error in handleWebhookPreprocess:', e);
-    return false;
-  }
 
-  return true;
+    return platform;
+  } catch (e) {
+    console.log('Error in shouldProcessWebhook:', e);
+    return null;
+  }
 }
 
 export async function handleWebhookPayload(rawPayload, headers = {}) {
@@ -93,7 +106,8 @@ export async function handleWebhookPayload(rawPayload, headers = {}) {
     const hook_id = headers['x-github-hook-id'] || 'unknown';
     const eventType = headers['x-github-event'] || 'unknown';
 
-    if (!(await shouldProcessWebhook(rawPayload, headers))) {
+    const platform = await shouldProcessWebhook(rawPayload, headers);
+    if (!platform) {
       return;
     }
     await pushGithubWebhookEntry(rawPayload, headers);

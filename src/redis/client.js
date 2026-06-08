@@ -6,18 +6,19 @@ import {
   FIREBASE_DATABASE_URL,
 } from '../api/env_variables';
 
-// ── Cached Firebase access token ──
 let cachedToken = null;
 let tokenExpiresAt = 0; // epoch ms
 
-// Clear cache whenever the module is reloaded (new deploy / cold start)
+function sanitizeDbUrl(raw) {
+  return (raw || '').replace(/^["'\s]+|["',\s]+$/g, '').replace(/\/$/, '');
+}
+
 export function clearFirebaseTokenCache() {
   cachedToken = null;
   tokenExpiresAt = 0;
 }
 
 async function getFirebaseAccessToken() {
-  // Return cached token if still valid (with 60s buffer)
   if (cachedToken && Date.now() < tokenExpiresAt - 60_000) {
     return { token: cachedToken, projectId: FIREBASE_PROJECT_ID };
   }
@@ -79,9 +80,8 @@ async function getFirebaseAccessToken() {
   }
   const data = await res.json();
 
-  // Cache the token; expires_in is in seconds (typically 3600)
   cachedToken = data.access_token;
-  tokenExpiresAt = Date.now() + (data.expires_in ?? 3600) * 1000;
+  tokenExpiresAt = Date.now() + (data.expires_in ?? 0) * 1000;
 
   return { token: cachedToken, projectId };
 }
@@ -92,9 +92,10 @@ export async function pushGithubWebhookEntry(
   ttlSeconds = 12 * 60 * 60
 ) {
   try {
-    const dbUrl = FIREBASE_DATABASE_URL;
     const { token } = await getFirebaseAccessToken();
-    const baseUrl = dbUrl || `https://${FIREBASE_PROJECT_ID}.firebaseio.com`;
+    const baseUrl =
+      sanitizeDbUrl(FIREBASE_DATABASE_URL) ||
+      sanitizeDbUrl(`https://${FIREBASE_PROJECT_ID}.firebaseio.com`);
 
     const getHeader = (name) => {
       return headers[name.toLowerCase()] ?? null;
@@ -113,7 +114,7 @@ export async function pushGithubWebhookEntry(
           : JSON.stringify(rawPayload),
     };
 
-    const url = `${baseUrl.replace(/\/$/, '')}/github_webhook_entries.json`;
+    const url = `${baseUrl}/github_webhook_entries.json`;
     const res = await fetch(url, {
       method: 'POST',
       headers: {
@@ -139,17 +140,24 @@ export async function pushGithubWebhookEntry(
 
 export async function cleanupGithubExpiredEntries() {
   try {
-    const dbUrl = FIREBASE_DATABASE_URL;
     const { token } = await getFirebaseAccessToken();
-    const baseUrl = dbUrl || `https://${FIREBASE_PROJECT_ID}.firebaseio.com`;
+    const baseUrl =
+      sanitizeDbUrl(FIREBASE_DATABASE_URL) ||
+      sanitizeDbUrl(`https://${FIREBASE_PROJECT_ID}.firebaseio.com`);
     const now = Date.now();
 
-    const queryUrl = `${baseUrl.replace(/\/$/, '')}/github_webhook_entries.json?orderBy="expiresAt"&endAt=${now}`;
+    const queryUrl = `${baseUrl}/github_webhook_entries.json?orderBy=${encodeURIComponent('"expiresAt"')}&endAt=${now}`;
     const res = await fetch(queryUrl, {
       method: 'GET',
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!res.ok) return 0;
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      console.log(
+        `cleanupGithubExpiredEntries query failed ${res.status}: ${errText}`
+      );
+      return 0;
+    }
 
     const data = await res.json();
     if (!data || typeof data !== 'object') return 0;
@@ -162,7 +170,7 @@ export async function cleanupGithubExpiredEntries() {
       updates[key] = null;
     }
 
-    const patchUrl = `${baseUrl.replace(/\/$/, '')}/github_webhook_entries.json`;
+    const patchUrl = `${baseUrl}/github_webhook_entries.json`;
     const patchRes = await fetch(patchUrl, {
       method: 'PATCH',
       headers: {
@@ -181,11 +189,13 @@ export async function cleanupGithubExpiredEntries() {
 
 export async function countGithubWebhookEntries(hook_id) {
   try {
-    const dbUrl = FIREBASE_DATABASE_URL;
     const { token } = await getFirebaseAccessToken();
-    const baseUrl = dbUrl || `https://${FIREBASE_PROJECT_ID}.firebaseio.com`;
+    const baseUrl =
+      sanitizeDbUrl(FIREBASE_DATABASE_URL) ||
+      sanitizeDbUrl(`https://${FIREBASE_PROJECT_ID}.firebaseio.com`);
 
-    const queryUrl = `${baseUrl.replace(/\/$/, '')}/github_webhook_entries.json?orderBy="hook_id"&equalTo="${hook_id}"&shallow=true`;
+    // orderBy and equalTo values must be percent-encoded
+    const queryUrl = `${baseUrl}/github_webhook_entries.json?orderBy=${encodeURIComponent('"hook_id"')}&equalTo=${encodeURIComponent(`"${hook_id}"`)}&shallow=true`;
     const res = await fetch(queryUrl, {
       method: 'GET',
       headers: { Authorization: `Bearer ${token}` },

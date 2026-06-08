@@ -6,6 +6,8 @@ import {
   PullRequestReopenedSchema,
   PushActivitySchema,
   PullRequestReviewSubmittedSchema,
+  PullRequestReviewEditedSchema,
+  PullRequestReviewDismissedSchema,
 } from './schema';
 import { ActivityTypes, ActivitySubTypes } from './constants';
 
@@ -27,7 +29,13 @@ export function parseGitHubWebhookPayload(eventType, rawPayload) {
     } else if (eventType === ActivityTypes.PUSH) {
       document = PushActivitySchema.extract(rawPayload);
     } else if (eventType === ActivityTypes.PULL_REQUEST_REVIEW) {
-      document = PullRequestReviewSubmittedSchema.extract(rawPayload);
+      if (rawPayload?.action === ActivitySubTypes.PR_REVIEW_SUBMITTED) {
+        document = PullRequestReviewSubmittedSchema.extract(rawPayload);
+      } else if (rawPayload?.action === ActivitySubTypes.PR_REVIEW_EDITED) {
+        document = PullRequestReviewEditedSchema.extract(rawPayload);
+      } else if (rawPayload?.action === ActivitySubTypes.PR_REVIEW_DISMISSED) {
+        document = PullRequestReviewDismissedSchema.extract(rawPayload);
+      }
     }
   } catch (e) {
     console.log('Error in parseGitHubWebhookPayload:', e);

@@ -39,6 +39,14 @@
       {
         "name": "submitted",
         "description": "A review on a pull request was submitted."
+      },
+      {
+        "name": "edited",
+        "description": "The body comment on a pull request review was edited."
+      },
+      {
+        "name": "dismissed",
+        "description": "A review on a pull request was dismissed."
       }
     ]
   }
