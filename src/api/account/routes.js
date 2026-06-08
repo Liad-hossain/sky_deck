@@ -10,6 +10,10 @@ import {
   toggleActivity,
   fetchPlatformActivityFeeds,
   fetchSubTypesByActivityIds,
+  inviteUserToPlatform,
+  getPlatformUsers,
+  searchUsers,
+  sendPlatformInvites,
 } from './services.js';
 import { authenticateUser } from '../authentication.js';
 
@@ -71,6 +75,16 @@ api.delete(
   })
 );
 
+api.post(
+  '/platforms/:platformId/invite',
+  authenticateUser(async (c, user) => {
+    const platformId = c.req.param('platformId');
+    const body = await c.req.json().catch(() => ({}));
+    const result = await inviteUserToPlatform(user.id, platformId, body);
+    return c.json(result.body, result.status);
+  })
+);
+
 // ── Platform Activities ─────────────────────────
 api.get(
   '/platforms/:platformId/activities',
@@ -118,6 +132,38 @@ api.get(
       activityId,
       c.req.query()
     );
+    return c.json(result.body, result.status);
+  })
+);
+
+// ── Platform Users (all users who share this platform) ─────────────────────
+api.get(
+  '/platforms/:platformId/users',
+  authenticateUser(async (c, user) => {
+    const platformId = c.req.param('platformId');
+    const result = await getPlatformUsers(user.id, platformId);
+    return c.json(result.body, result.status);
+  })
+);
+
+// ── Search Users by Email ──────────────────────────────────────────────────
+api.get(
+  '/users/search',
+  authenticateUser(async (c) => {
+    const url = new URL(c.req.url, 'http://localhost');
+    const email = url.searchParams.get('email') ?? '';
+    const result = await searchUsers(email);
+    return c.json(result.body, result.status);
+  })
+);
+
+// ── Send Platform Invitations (emails) ─────────────────────────────────────
+api.post(
+  '/platforms/:platformId/send-invites',
+  authenticateUser(async (c, user) => {
+    const platformId = c.req.param('platformId');
+    const body = await c.req.json().catch(() => ({}));
+    const result = await sendPlatformInvites(user.id, platformId, body);
     return c.json(result.body, result.status);
   })
 );

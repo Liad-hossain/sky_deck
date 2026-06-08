@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { insertOrUpdatePlatformConnection } from '../../../db/platforms.js';
-import { fetchPlatformByInstallationId } from '../../../db/platforms.js';
+import { fetchPlatformsByInstallationId } from '../../../db/platforms.js';
 import { generateGitHubAppJWT } from './utils.js';
 import {
   fetchGitHubTokens,
@@ -49,12 +49,12 @@ async function shouldProcessWebhook(rawPayload, headers) {
       return null;
     }
 
-    let platform = null;
+    let platforms = null;
     try {
-      const result = await fetchPlatformByInstallationId(
+      const result = await fetchPlatformsByInstallationId(
         rawPayload.installation.id
       );
-      platform = result.platform;
+      platforms = result.platforms;
       if (result.error) {
         console.log(
           `Error fetching platform for installation_id ${rawPayload.installation.id}:`,
@@ -69,7 +69,7 @@ async function shouldProcessWebhook(rawPayload, headers) {
       return null;
     }
 
-    if (!platform) {
+    if (!platforms || platforms.length === 0) {
       console.log(
         `No platform found for installation_id ${rawPayload.installation.id}, hook_id ${hook_id}.`
       );
@@ -83,7 +83,7 @@ async function shouldProcessWebhook(rawPayload, headers) {
       return null;
     }
 
-    return platform;
+    return platforms;
   } catch (e) {
     console.log('Error in shouldProcessWebhook:', e);
     return null;
@@ -96,8 +96,8 @@ export async function handleWebhookPayload(rawPayload, headers = {}) {
     const hook_id = headers['x-github-hook-id'] || 'unknown';
     const eventType = headers['x-github-event'] || 'unknown';
 
-    const platform = await shouldProcessWebhook(rawPayload, headers);
-    if (!platform) {
+    const platforms = await shouldProcessWebhook(rawPayload, headers);
+    if (!platforms) {
       return;
     }
     await pushGithubWebhookEntry(rawPayload, headers);
@@ -113,11 +113,22 @@ export async function handleWebhookPayload(rawPayload, headers = {}) {
       const llmSummary = await generateActivitySummary(document);
       document.summary = llmSummary ?? document.summary ?? null;
 
-      await insertGitHubActivity({
-        ...document,
-        sky_deck_user_id: platform.user_id,
-        platform_id: platform.id,
-      });
+      for (const platform of platforms) {
+        if (
+          platform.user_metadata?.user_association !== 'owner' &&
+          platform.user_metadata?.github_user_id !== document.actor?.id
+        ) {
+          console.log(
+            `Skipping activity insertion for platform_id: ${platform.id} and user_id: ${platform.user_id} due to user association and actor mismatch.`
+          );
+          continue;
+        }
+        await insertGitHubActivity({
+          ...document,
+          sky_deck_user_id: platform.user_id,
+          platform_id: platform.id,
+        });
+      }
     } else {
       console.log(
         `Something went wrong extracting document for hook_id: ${hook_id}, event type: ${eventType}.`
@@ -165,6 +176,7 @@ export async function handleInstallation(userId, code, installation_id) {
       avatar_url: installation.account?.avatar_url ?? null,
       html_url: installation.account?.html_url ?? null,
       account_type: installation.account?.type ?? null,
+      user_association: 'owner',
     };
 
     const platformMetadata = {

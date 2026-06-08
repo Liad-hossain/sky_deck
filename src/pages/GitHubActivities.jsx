@@ -127,7 +127,7 @@ const SUB_TYPE = {
     descColor: 'text-teal-300/70',
   },
   submitted: {
-    label: 'Review',
+    label: 'Submitted',
     dot: 'bg-purple-400',
     chip: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
     bar: 'from-purple-500 to-violet-500',
@@ -239,7 +239,7 @@ function ActivityCard({ item, onExpand, isSelected, subTypeDesc }) {
           </span>
         </div>
 
-        {/* sub_type description — colored to match sub_type */}
+        {/* sub_type description */}
         <p
           className={`mt-1.5 line-clamp-2 text-xs leading-relaxed ${st.descColor}`}
         >
@@ -295,45 +295,6 @@ function ActivityCard({ item, onExpand, isSelected, subTypeDesc }) {
             )}
           </div>
         )}
-
-        {/* Edited changes — only for PR_EDITED sub_type */}
-        {isPR &&
-          item.activity_sub_type === 'edited' &&
-          pr?.changes &&
-          Object.keys(pr.changes).length > 0 && (
-            <div className="mt-2 space-y-1 border-t border-white/5 pt-2 text-[10px]">
-              {pr.changes.title?.from && (
-                <div className="flex items-start gap-1.5">
-                  <span className="shrink-0 text-gray-600">title</span>
-                  <span className="truncate font-mono text-red-400/80 line-through">
-                    {pr.changes.title.from}
-                  </span>
-                  <span className="shrink-0 text-gray-600">→</span>
-                  <span className="truncate font-mono text-sky-300">
-                    {pr.title}
-                  </span>
-                </div>
-              )}
-              {pr.changes.base?.ref?.from && (
-                <div className="flex items-center gap-1.5">
-                  <span className="shrink-0 text-gray-600">base</span>
-                  <span className="rounded bg-red-500/10 px-1 py-0.5 font-mono text-red-400/80 line-through">
-                    {pr.changes.base.ref.from}
-                  </span>
-                  <span className="text-gray-600">→</span>
-                  <span className="rounded bg-indigo-500/10 px-1 py-0.5 font-mono text-indigo-300">
-                    {pr.base?.ref}
-                  </span>
-                </div>
-              )}
-              {pr.changes.body?.from != null && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-gray-600">description</span>
-                  <span className="text-sky-400">updated</span>
-                </div>
-              )}
-            </div>
-          )}
       </div>
     </motion.div>
   );
@@ -373,8 +334,10 @@ function ActivityDetail({ item, onClose }) {
   const repo = tryParse(item.repository);
   const actor = tryParse(item.actor);
   const pr = tryParse(item.pull_request);
+  const review = tryParse(item.pull_request_review);
   const pushEvent = tryParse(item.push_event);
   const isPR = item.activity_type === 'pull_request';
+  const isPRReview = item.activity_type === 'pull_request_review';
   const isPush = item.activity_type === 'push';
   const labels = tryParseArray(pr?.labels);
   const reviewers = tryParseArray(pr?.requested_reviewers);
@@ -609,6 +572,53 @@ function ActivityDetail({ item, onClose }) {
               )}
             </div>
 
+            {/* Edited changes (shown only in right detail panel) */}
+            {item.activity_sub_type === 'edited' &&
+              pr?.changes &&
+              Object.keys(pr.changes).length > 0 && (
+                <div className="mt-3 border-t border-white/5 pt-3">
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                    Edited Fields
+                  </p>
+                  <div className="space-y-2 text-[11px]">
+                    {pr.changes.title?.from && (
+                      <div className="border-white/8 flex items-start gap-1.5 rounded-lg border bg-black/20 px-2.5 py-2">
+                        <span className="mt-0.5 shrink-0 text-gray-500">
+                          title
+                        </span>
+                        <span className="truncate font-mono text-red-400/80 line-through">
+                          {pr.changes.title.from}
+                        </span>
+                        <span className="shrink-0 text-gray-600">→</span>
+                        <span className="truncate font-mono text-sky-300">
+                          {pr.title}
+                        </span>
+                      </div>
+                    )}
+
+                    {pr.changes.base?.ref?.from && (
+                      <div className="border-white/8 flex items-center gap-1.5 rounded-lg border bg-black/20 px-2.5 py-2">
+                        <span className="shrink-0 text-gray-500">base</span>
+                        <span className="rounded bg-red-500/10 px-1 py-0.5 font-mono text-red-400/80 line-through">
+                          {pr.changes.base.ref.from}
+                        </span>
+                        <span className="text-gray-600">→</span>
+                        <span className="rounded bg-indigo-500/10 px-1 py-0.5 font-mono text-indigo-300">
+                          {pr.base?.ref}
+                        </span>
+                      </div>
+                    )}
+
+                    {pr.changes.body?.from != null && (
+                      <div className="border-white/8 flex items-center gap-2 rounded-lg border bg-black/20 px-2.5 py-2">
+                        <span className="text-gray-500">description</span>
+                        <span className="text-sky-400">updated</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
             {/* Merged by */}
             {pr.merged_by?.name && (
               <div className="mt-3 flex items-center gap-2 border-t border-white/5 pt-3">
@@ -686,6 +696,49 @@ function ActivityDetail({ item, onClose }) {
                   ))}
                 </div>
               </div>
+            )}
+          </Section>
+        )}
+
+        {/* Pull request review details */}
+        {isPRReview && review && (
+          <Section title="Review Details" icon={HiOutlineCode}>
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {review.action && (
+                <span className="rounded-full border border-blue-500/30 bg-blue-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-blue-300">
+                  {String(review.action).replace(/_/g, ' ')}
+                </span>
+              )}
+              {review.state && (
+                <span className="rounded-full border border-violet-500/30 bg-violet-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-violet-300">
+                  {String(review.state).replace(/_/g, ' ')}
+                </span>
+              )}
+            </div>
+
+            {review.body && (
+              <div className="border-white/8 mb-3 rounded-lg border bg-black/20 px-3 py-2.5 text-[12px] leading-relaxed text-gray-300">
+                {review.body}
+              </div>
+            )}
+
+            <div className="space-y-0.5 border-t border-white/5 pt-2">
+              <Row label="Submitted" value={fmtDate(review.submitted_at)} />
+              <Row label="Updated" value={fmtDate(review.updated_at)} />
+              <Row label="Review ID" value={review.id} mono />
+              <Row label="Commit ID" value={review.commit_id} mono />
+            </div>
+
+            {review.html_url && (
+              <a
+                href={review.html_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300"
+              >
+                <HiOutlineExternalLink className="h-3 w-3" /> Open Review on
+                GitHub
+              </a>
             )}
           </Section>
         )}

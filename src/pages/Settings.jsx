@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   HiOutlineCog,
@@ -11,6 +11,10 @@ import {
   HiOutlineChevronRight,
   HiOutlineInformationCircle,
   HiOutlineDotsVertical,
+  HiOutlineMail,
+  HiOutlineUserGroup,
+  HiOutlineSearch,
+  HiOutlineLockClosed,
 } from 'react-icons/hi';
 import {
   SiGithub,
@@ -423,11 +427,321 @@ function ActivityDetail({ activity, onClose }) {
   );
 }
 
+// ── Invitation Tab Content ──────────────────────────────────────────────────
+function InvitationTab({ platform }) {
+  const [platformUsers, setPlatformUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [sending, setSending] = useState(false);
+  const searchTimeout = useRef(null);
+
+  const isGitHub = platform.platform_type === 'github';
+  const accountType =
+    platform?.platform_metadata?.installation_details?.account?.type ??
+    platform?.user_metadata?.account_type ??
+    null;
+  const isOrg = String(accountType).toLowerCase() === 'organization';
+  const userAssociation = String(
+    platform?.user_metadata?.user_association ?? ''
+  ).toLowerCase();
+  const isOwner = userAssociation === 'owner';
+
+  useEffect(() => {
+    if (!isGitHub || !isOrg) return;
+    (async () => {
+      setLoadingUsers(true);
+      const { ok, data } = await apiFetch(
+        `/api/account/platforms/${platform.id}/users`
+      );
+      if (ok) setPlatformUsers(data?.users ?? []);
+      setLoadingUsers(false);
+    })();
+  }, [platform.id, isGitHub, isOrg]);
+
+  const handleSearch = useCallback(
+    (value) => {
+      setSearchQuery(value);
+      if (searchTimeout.current) clearTimeout(searchTimeout.current);
+      if (value.trim().length < 2) {
+        setSearchResults([]);
+        return;
+      }
+      searchTimeout.current = setTimeout(async () => {
+        setSearching(true);
+        const { ok, data } = await apiFetch(
+          `/api/account/users/search?email=${encodeURIComponent(value.trim())}`
+        );
+        if (ok) {
+          const existingIds = new Set(platformUsers.map((u) => u.user_id));
+          setSearchResults(
+            (data?.users ?? []).filter((u) => !existingIds.has(u.id))
+          );
+        }
+        setSearching(false);
+      }, 400);
+    },
+    [platformUsers]
+  );
+
+  const toggleSelect = (user) => {
+    setSelectedUsers((prev) =>
+      prev.some((u) => u.id === user.id)
+        ? prev.filter((u) => u.id !== user.id)
+        : [...prev, user]
+    );
+  };
+
+  const handleSendInvites = async () => {
+    if (selectedUsers.length === 0) return;
+    setSending(true);
+    const { ok, data } = await apiFetch(
+      `/api/account/platforms/${platform.id}/send-invites`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ user_ids: selectedUsers.map((u) => u.id) }),
+      }
+    );
+    setSending(false);
+    if (ok) {
+      const successCount = (data?.results ?? []).filter(
+        (r) => r.success
+      ).length;
+      toast.success(
+        `Invitation sent to ${successCount} user${successCount !== 1 ? 's' : ''}`
+      );
+      setSelectedUsers([]);
+      setSearchQuery('');
+      setSearchResults([]);
+    } else {
+      toast.error(data?.error || 'Failed to send invitations');
+    }
+  };
+
+  if (!isGitHub || !isOrg || !isOwner) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center py-16 text-center">
+        <HiOutlineLockClosed className="mb-4 h-10 w-10 text-gray-700" />
+        <p className="text-sm font-medium text-gray-400">Not Available</p>
+        <p className="mt-2 max-w-xs text-xs text-gray-600">
+          Platform invitation is only applicable for GitHub organization type
+          accounts. {!isGitHub && 'This platform is not a GitHub integration.'}
+          {isGitHub && !isOrg && 'This GitHub account is not an organization.'}
+          {isGitHub &&
+            isOrg &&
+            !isOwner &&
+            'Only the organization owner can manage invitations.'}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full flex-col gap-4">
+      {/* Current platform users */}
+      <div className="flex flex-col">
+        <div className="mb-2 flex items-center gap-2">
+          <HiOutlineUserGroup className="h-4 w-4 text-indigo-400" />
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+            Current Users
+          </p>
+          {!loadingUsers && (
+            <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-gray-500">
+              {platformUsers.length}
+            </span>
+          )}
+        </div>
+
+        {loadingUsers ? (
+          <div className="flex items-center justify-center py-6">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
+          </div>
+        ) : platformUsers.length === 0 ? (
+          <p className="py-4 text-center text-xs text-gray-600">
+            No users connected to this platform yet.
+          </p>
+        ) : (
+          <div className="border-white/8 max-h-40 space-y-1 overflow-y-auto rounded-xl border bg-white/[0.02] p-2">
+            {platformUsers.map((u) => (
+              <div
+                key={u.user_id}
+                className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 hover:bg-white/5"
+              >
+                {u.avatar_url ? (
+                  <img
+                    src={u.avatar_url}
+                    className="h-6 w-6 rounded-full object-cover"
+                    alt=""
+                  />
+                ) : (
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-500/20 text-[10px] font-bold text-indigo-300">
+                    {(u.full_name || u.email || '?')[0].toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-medium text-gray-200">
+                    {u.full_name || 'Unnamed'}
+                  </p>
+                  <p className="truncate text-[10px] text-gray-500">
+                    {u.email}
+                  </p>
+                </div>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${
+                    u.is_connected
+                      ? 'bg-emerald-500/10 text-emerald-400'
+                      : 'bg-gray-500/10 text-gray-500'
+                  }`}
+                >
+                  {u.is_connected ? 'Connected' : 'Pending'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Invite section */}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="mb-2 flex items-center gap-2">
+          <HiOutlineMail className="h-4 w-4 text-purple-400" />
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+            Invite Users
+          </p>
+        </div>
+
+        {/* Search input */}
+        <div className="relative mb-3">
+          <HiOutlineSearch className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-500" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+            placeholder="Search by email address..."
+            className="w-full rounded-lg border border-white/10 bg-white/[0.04] py-2 pl-9 pr-3 text-xs text-white placeholder-gray-600 outline-none transition-colors focus:border-indigo-500/50 focus:bg-white/[0.06]"
+          />
+          {searching && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
+            </div>
+          )}
+        </div>
+
+        {/* Search results */}
+        {searchResults.length > 0 && (
+          <div className="border-white/8 mb-3 max-h-36 space-y-1 overflow-y-auto rounded-xl border bg-white/[0.02] p-2">
+            {searchResults.map((user) => {
+              const isSelected = selectedUsers.some((u) => u.id === user.id);
+              return (
+                <button
+                  key={user.id}
+                  onClick={() => toggleSelect(user)}
+                  className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors ${
+                    isSelected
+                      ? 'border border-indigo-500/30 bg-indigo-500/15'
+                      : 'border border-transparent hover:bg-white/5'
+                  }`}
+                >
+                  {user.avatar_url ? (
+                    <img
+                      src={user.avatar_url}
+                      className="h-6 w-6 rounded-full object-cover"
+                      alt=""
+                    />
+                  ) : (
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-500/20 text-[10px] font-bold text-purple-300">
+                      {(user.full_name || user.email || '?')[0].toUpperCase()}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium text-gray-200">
+                      {user.full_name || 'Unnamed'}
+                    </p>
+                    <p className="truncate text-[10px] text-gray-500">
+                      {user.email}
+                    </p>
+                  </div>
+                  <div
+                    className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                      isSelected
+                        ? 'border-indigo-400 bg-indigo-500'
+                        : 'border-gray-600 bg-transparent'
+                    }`}
+                  >
+                    {isSelected && (
+                      <HiOutlineCheck className="h-2.5 w-2.5 text-white" />
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {searchQuery.length >= 2 &&
+          !searching &&
+          searchResults.length === 0 && (
+            <p className="mb-3 text-center text-[11px] text-gray-600">
+              No users found matching &ldquo;{searchQuery}&rdquo;
+            </p>
+          )}
+
+        {/* Selected users chips */}
+        {selectedUsers.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {selectedUsers.map((user) => (
+              <span
+                key={user.id}
+                className="inline-flex items-center gap-1 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-2.5 py-1 text-[10px] font-medium text-indigo-300"
+              >
+                {user.email}
+                <button
+                  onClick={() => toggleSelect(user)}
+                  className="ml-0.5 rounded-full p-0.5 hover:bg-indigo-500/20"
+                >
+                  <HiOutlineX className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Invite button */}
+        <button
+          onClick={handleSendInvites}
+          disabled={selectedUsers.length === 0 || sending}
+          className={`mt-auto flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold transition-all ${
+            selectedUsers.length > 0
+              ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40'
+              : 'cursor-not-allowed bg-white/5 text-gray-600'
+          } ${sending ? 'cursor-wait opacity-70' : ''}`}
+        >
+          {sending ? (
+            <>
+              <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              Sending…
+            </>
+          ) : (
+            <>
+              <HiOutlineMail className="h-3.5 w-3.5" />
+              Send Invitation{selectedUsers.length > 1 ? 's' : ''}{' '}
+              {selectedUsers.length > 0 && `(${selectedUsers.length})`}
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Platform settings view (right panel)
 function PlatformSettingsView({ platform }) {
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
+  const [activeTab, setActiveTab] = useState('activities');
   const fetched = useRef(false);
 
   const Icon = PLATFORM_ICONS[platform.platform_type] ?? HiOutlineCog;
@@ -447,9 +761,33 @@ function PlatformSettingsView({ platform }) {
     })();
   }, [platform.id]);
 
+  const isGitHub = platform.platform_type === 'github';
+  const accountType =
+    platform?.platform_metadata?.installation_details?.account?.type ??
+    platform?.user_metadata?.account_type ??
+    null;
+  const isOrg = String(accountType).toLowerCase() === 'organization';
+  const userAssociation = String(
+    platform?.user_metadata?.user_association ?? ''
+  ).toLowerCase();
+  const isOwner = userAssociation === 'owner';
+  const canSeeInvitationSettings = isGitHub && isOrg && isOwner;
+
+  const TABS = [{ key: 'activities', label: 'Activities', icon: HiOutlineCog }];
+  if (canSeeInvitationSettings) {
+    TABS.push({ key: 'invitation', label: 'Invitation', icon: HiOutlineMail });
+  }
+
+  useEffect(() => {
+    if (!TABS.some((tab) => tab.key === activeTab)) {
+      setActiveTab('activities');
+    }
+  }, [activeTab, TABS]);
+
   return (
     <div className="flex h-full flex-col overflow-hidden p-5">
-      <div className="mb-5 flex shrink-0 items-center gap-3">
+      {/* Header */}
+      <div className="mb-4 flex shrink-0 items-center gap-3">
         <div
           className={`flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br ${grad}`}
         >
@@ -460,7 +798,7 @@ function PlatformSettingsView({ platform }) {
             {platform.title || platform.platform_type}
           </h2>
           <p className="text-[11px] capitalize text-gray-500">
-            {platform.platform_type} \u00b7 Connected
+            {platform.platform_type} · Connected
           </p>
         </div>
         <span className="ml-auto rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-medium text-emerald-400">
@@ -469,68 +807,118 @@ function PlatformSettingsView({ platform }) {
         </span>
       </div>
 
-      <p className="mb-2 shrink-0 text-[10px] font-bold uppercase tracking-widest text-gray-600">
-        Activity Settings
-      </p>
+      <div className="flex min-h-0 flex-1 gap-4">
+        {/* Left side settings menu */}
+        <aside className="border-white/8 w-48 shrink-0 rounded-xl border bg-black/20 p-2">
+          <p className="px-2 pb-2 pt-1 text-[10px] font-bold uppercase tracking-widest text-gray-600">
+            Platform Settings
+          </p>
+          <div className="space-y-1">
+            {TABS.map((tab) => {
+              const TabIcon = tab.icon;
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium transition-all ${
+                    isActive
+                      ? 'bg-indigo-500/20 text-white shadow-sm shadow-indigo-500/10'
+                      : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
+                  }`}
+                >
+                  <TabIcon className="h-4 w-4" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        </aside>
 
-      <div className="flex min-h-0 flex-1 gap-3">
-        <div
-          className={`flex min-w-0 flex-col transition-all duration-200 ${selected ? 'w-[52%]' : 'w-full'}`}
-        >
-          {loading ? (
-            <div className="flex flex-1 items-center justify-center py-10">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
-            </div>
-          ) : activities.length === 0 ? (
-            <div className="border-white/8 flex flex-col items-center rounded-xl border bg-white/[0.03] py-10 text-center">
-              <HiOutlineCog className="mb-3 h-8 w-8 text-gray-700" />
-              <p className="text-sm text-gray-500">No activities available</p>
-              <p className="mt-1 text-xs text-gray-600">
-                This platform has no configurable activity types yet.
+        {/* Right side settings content */}
+        <div className="min-h-0 min-w-0 flex-1">
+          {activeTab === 'activities' && (
+            <>
+              <p className="mb-2 shrink-0 text-[10px] font-bold uppercase tracking-widest text-gray-600">
+                Activity Settings
               </p>
-            </div>
-          ) : (
-            <div className="flex-1 space-y-2 overflow-y-auto pr-0.5">
-              {activities.map((act) => (
-                <ActivityRow
-                  key={act.id}
-                  activity={act}
-                  platformId={platform.id}
-                  isSelected={selected?.id === act.id}
-                  onSelect={(a) =>
-                    setSelected((prev) => (prev?.id === a.id ? null : a))
-                  }
-                  onToggled={(id, val) =>
-                    setActivities((prev) =>
-                      prev.map((a) =>
-                        a.id === id ? { ...a, is_active: val } : a
-                      )
-                    )
-                  }
-                />
-              ))}
+
+              <div className="flex h-full min-h-0 gap-3">
+                <div
+                  className={`flex min-w-0 flex-col transition-all duration-200 ${selected ? 'w-[52%]' : 'w-full'}`}
+                >
+                  {loading ? (
+                    <div className="flex flex-1 items-center justify-center py-10">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
+                    </div>
+                  ) : activities.length === 0 ? (
+                    <div className="border-white/8 flex flex-col items-center rounded-xl border bg-white/[0.03] py-10 text-center">
+                      <HiOutlineCog className="mb-3 h-8 w-8 text-gray-700" />
+                      <p className="text-sm text-gray-500">
+                        No activities available
+                      </p>
+                      <p className="mt-1 text-xs text-gray-600">
+                        This platform has no configurable activity types yet.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex-1 space-y-2 overflow-y-auto pr-0.5">
+                      {activities.map((act) => (
+                        <ActivityRow
+                          key={act.id}
+                          activity={act}
+                          platformId={platform.id}
+                          isSelected={selected?.id === act.id}
+                          onSelect={(a) =>
+                            setSelected((prev) =>
+                              prev?.id === a.id ? null : a
+                            )
+                          }
+                          onToggled={(id, val) =>
+                            setActivities((prev) =>
+                              prev.map((a) =>
+                                a.id === id ? { ...a, is_active: val } : a
+                              )
+                            )
+                          }
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <AnimatePresence>
+                  {selected && (
+                    <motion.div
+                      key="act-detail"
+                      initial={{ opacity: 0, width: 0 }}
+                      animate={{ opacity: 1, width: '48%' }}
+                      exit={{ opacity: 0, width: 0 }}
+                      transition={{
+                        type: 'spring',
+                        stiffness: 400,
+                        damping: 38,
+                      }}
+                      className="flex-shrink-0 overflow-hidden rounded-xl border border-white/10 bg-[#0f0c29]"
+                      style={{ minWidth: 0 }}
+                    >
+                      <ActivityDetail
+                        activity={selected}
+                        onClose={() => setSelected(null)}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'invitation' && canSeeInvitationSettings && (
+            <div className="h-full min-h-0 overflow-y-auto">
+              <InvitationTab platform={platform} />
             </div>
           )}
         </div>
-
-        <AnimatePresence>
-          {selected && (
-            <motion.div
-              key="act-detail"
-              initial={{ opacity: 0, width: 0 }}
-              animate={{ opacity: 1, width: '48%' }}
-              exit={{ opacity: 0, width: 0 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 38 }}
-              className="flex-shrink-0 overflow-hidden rounded-xl border border-white/10 bg-[#0f0c29]"
-              style={{ minWidth: 0 }}
-            >
-              <ActivityDetail
-                activity={selected}
-                onClose={() => setSelected(null)}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </div>
   );

@@ -30,6 +30,11 @@ const SKY_DECK_APP_URL = get('SKY_DECK_APP_URL');
 
 const SKY_DECK_GROQ_API_KEY = get('SKY_DECK_GROQ_API_KEY');
 
+const SMTP_HOST = get('SMTP_HOST');
+const SMTP_PORT = get('SMTP_PORT');
+const SMTP_USER = get('SMTP_USER');
+const SMTP_PASS = get('SMTP_PASS');
+
 export {
   SUPABASE_URL,
   SUPABASE_ANON_KEY,
@@ -51,4 +56,8 @@ export {
   FIREBASE_DATABASE_URL,
   SKY_DECK_APP_URL,
   SKY_DECK_GROQ_API_KEY,
+  SMTP_HOST,
+  SMTP_PORT,
+  SMTP_USER,
+  SMTP_PASS,
 };

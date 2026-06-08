@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import { handleInstallation, handleWebhookPayload } from './handlers.js';
+import { fetchGitHubUserFromOAuthCode } from './github_auth.js';
 import { authenticateUser } from '../../authentication.js';
-import { GITHUB_APP_SLUG } from '../../env_variables.js';
+import { GITHUB_APP_SLUG, GITHUB_CLIENT_ID } from '../../env_variables.js';
 
 const github = new Hono();
 
@@ -16,6 +17,37 @@ github.get('/install-redirect', (c) => {
     302
   );
 });
+
+// ── GET /api/platforms/github/oauth-login-redirect ─────────────────────────
+github.get('/oauth-login-redirect', (c) => {
+  const redirectUri = c.req.query('redirect_uri');
+  if (!redirectUri) return c.json({ error: 'Missing redirect_uri' }, 400);
+  if (!GITHUB_CLIENT_ID)
+    return c.json({ error: 'GitHub OAuth not configured on server' }, 500);
+
+  const authorizeUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(
+    GITHUB_CLIENT_ID
+  )}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user`;
+
+  return c.redirect(authorizeUrl, 302);
+});
+
+// ── POST /api/platforms/github/oauth-user ──────────────────────────────────
+github.post(
+  '/oauth-user',
+  authenticateUser(async (c) => {
+    const { code, redirect_uri } = await c.req.json().catch(() => ({}));
+    if (!code || !redirect_uri) {
+      return c.json({ error: 'code and redirect_uri are required' }, 400);
+    }
+
+    const { data, error, status } = await fetchGitHubUserFromOAuthCode(
+      code,
+      redirect_uri
+    );
+    return c.json(error ? { error } : data, status ?? 200);
+  })
+);
 
 // ── POST /api/platforms/github/install ───────────────────────────────────
 github.post(

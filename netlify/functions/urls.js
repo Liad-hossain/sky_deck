@@ -4,22 +4,74 @@ console.log('[urls] module loaded, cwd=', process.cwd());
 
 let appPromise = null;
 
+function isHonoRouter(value) {
+  return Boolean(
+    value && typeof value === 'object' && Array.isArray(value.routes)
+  );
+}
+
+function resolveRouter(mod, exportName) {
+  const candidates = [
+    mod?.[exportName],
+    mod?.default,
+    mod?.default?.[exportName],
+    mod?.default?.default,
+  ];
+  return candidates.find((c) => isHonoRouter(c)) ?? null;
+}
+
 async function buildApp() {
-  const [
-    { githubRoutes },
-    { sessionRoutes },
-    { accountRoutes },
-    { uploadRoutes },
-    { taskRoutes },
-    envVars,
-  ] = await Promise.all([
-    import('../../src/api/platforms/github/routes.js'),
-    import('../../src/api/session/routes.js'),
-    import('../../src/api/account/routes.js'),
-    import('../../src/api/upload/routes.js'),
-    import('../../src/api/tasks/routes.js'),
-    import('../../src/api/env_variables.js'),
-  ]);
+  const [githubMod, sessionMod, accountMod, uploadMod, taskMod, envVars] =
+    await Promise.all([
+      import('../../src/api/platforms/github/routes.js'),
+      import('../../src/api/session/routes.js'),
+      import('../../src/api/account/routes.js'),
+      import('../../src/api/upload/routes.js'),
+      import('../../src/api/tasks/routes.js'),
+      import('../../src/api/env_variables.js'),
+    ]);
+
+
+  const githubRoutes = resolveRouter(githubMod, 'githubRoutes');
+  const sessionRoutes = resolveRouter(sessionMod, 'sessionRoutes');
+  const accountRoutes = resolveRouter(accountMod, 'accountRoutes');
+  const uploadRoutes = resolveRouter(uploadMod, 'uploadRoutes');
+  const taskRoutes = resolveRouter(taskMod, 'taskRoutes');
+
+  const mounts = [
+    ['githubRoutes', githubRoutes],
+    ['sessionRoutes', sessionRoutes],
+    ['accountRoutes', accountRoutes],
+    ['uploadRoutes', uploadRoutes],
+    ['taskRoutes', taskRoutes],
+  ];
+  for (const [name, route] of mounts) {
+    if (!isHonoRouter(route)) {
+      throw new Error(
+        `[urls] ${name} is invalid; available exports=${JSON.stringify(
+          Object.keys(
+            {
+              githubRoutes: githubMod,
+              sessionRoutes: sessionMod,
+              accountRoutes: accountMod,
+              uploadRoutes: uploadMod,
+              taskRoutes: taskMod,
+            }[name] ?? {}
+          )
+        )}; defaultExports=${JSON.stringify(
+          Object.keys(
+            {
+              githubRoutes: githubMod,
+              sessionRoutes: sessionMod,
+              accountRoutes: accountMod,
+              uploadRoutes: uploadMod,
+              taskRoutes: taskMod,
+            }[name]?.default ?? {}
+          )
+        )}`
+      );
+    }
+  }
 
   const app = new Hono().basePath('/api');
 

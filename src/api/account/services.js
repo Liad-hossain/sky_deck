@@ -1,13 +1,20 @@
-// Backend profile + platforms processing.
-import { fetchUserProfile, updateProfileFields } from '../../db/profiles.js';
+import {
+  fetchUserProfile,
+  updateProfileFields,
+  searchProfilesByEmail,
+} from '../../db/profiles.js';
 import {
   fetchUserPlatforms,
   fetchPlatformById,
+  fetchPlatformByAnyId,
+  fetchPlatformUsers,
   updatePlatformById,
   disconnectPlatformById,
   archivePlatformById,
+  createOrUpdateInvitedPlatform,
 } from '../../db/platforms.js';
 import { handleDisconnect } from '../platforms/github/handlers.js';
+import { checkGitHubOrgMembership } from '../platforms/github/github_auth.js';
 import {
   fetchGitHubActivities,
   countGitHubActivities,
@@ -18,6 +25,7 @@ import {
   togglePlatformActivity,
   getSubTypesByActivityIds,
 } from '../../db/activities.js';
+import { sendInvitationEmail } from '../externals/email_service.js';
 
 export async function fetchProfile(userId) {
   try {
@@ -301,11 +309,9 @@ export async function fetchPlatformActivityFeeds(
   activityId,
   params = {}
 ) {
-  // ── Parse & validate params ───────────────────────────────────────────────
   const limit = Math.min(parseInt(params.limit ?? '20', 10), 100);
   const offset = Math.max(parseInt(params.offset ?? '0', 10), 0);
 
-  // Convert ISO UTC strings to Unix ms timestamps
   let startTs = null;
   let endTs = null;
   if (params.start) {
@@ -401,6 +407,280 @@ export async function fetchPlatformActivityFeeds(
     return { status: 200, body: { activities, total_count, limit, offset } };
   } catch (e) {
     console.log(`Error fetching ${platform.platform_type} feed:`, e);
+    return { status: 500, body: { error: 'Something went wrong' } };
+  }
+}
+
+export async function inviteUserToPlatform(userId, platformId, body = {}) {
+  const githubUserId = body?.github_user_id;
+  const githubLogin = body?.github_login;
+  const targetUserId = userId;
+
+  if (!platformId) {
+    return { status: 400, body: { error: 'Missing platform id' } };
+  }
+  if (!targetUserId) {
+    return { status: 400, body: { error: 'Missing user id' } };
+  }
+  if (!githubUserId) {
+    return {
+      status: 400,
+      body: { error: 'github_user_id is required' },
+    };
+  }
+  if (!githubLogin) {
+    return {
+      status: 400,
+      body: { error: 'github_login is required' },
+    };
+  }
+
+  try {
+    const { profile, error: userErr } = await fetchUserProfile(targetUserId);
+    if (userErr) {
+      console.log('Error fetching target user for invite:', userErr);
+      return {
+        status: 500,
+        body: { error: 'Something went wrong while fetching target user' },
+      };
+    }
+    if (!profile) {
+      return { status: 404, body: { error: 'Target user not found' } };
+    }
+
+    const { platform, error } = await fetchPlatformByAnyId(platformId);
+    if (error) {
+      console.log('Error fetching platform for invite:', error);
+      return {
+        status: 500,
+        body: { error: 'Something went wrong while fetching platform' },
+      };
+    }
+    if (!platform) {
+      return { status: 404, body: { error: 'Platform not found' } };
+    }
+
+    if (platform.platform_type !== 'github') {
+      return {
+        status: 400,
+        body: { error: 'Only github platform invite is supported for now' },
+      };
+    }
+
+    const accountType =
+      platform?.platform_metadata?.installation_details?.account?.type ??
+      platform?.user_metadata?.account_type ??
+      null;
+
+    if (String(accountType).toLowerCase() !== 'organization') {
+      return {
+        status: 400,
+        body: {
+          error:
+            'Invite is allowed only for github organization platforms right now',
+        },
+      };
+    }
+
+    const installationId = platform.platform_metadata?.installation_id;
+    const orgLogin =
+      platform.platform_metadata?.installation_details?.account?.login ??
+      platform.user_metadata?.login ??
+      null;
+
+    if (!installationId || !orgLogin) {
+      return {
+        status: 500,
+        body: {
+          error:
+            'Platform is missing GitHub installation details — cannot verify org membership',
+        },
+      };
+    }
+
+    const { isMember, error: memberErr } = await checkGitHubOrgMembership(
+      installationId,
+      orgLogin,
+      githubLogin
+    );
+
+    if (memberErr) {
+      console.log('Error checking GitHub org membership:', memberErr);
+      return {
+        status: 500,
+        body: { error: 'Failed to verify organization membership on GitHub' },
+      };
+    }
+
+    if (!isMember) {
+      return {
+        status: 403,
+        body: {
+          error: `User @${githubLogin} is not a member of the GitHub organization "${orgLogin}"`,
+        },
+      };
+    }
+
+    const { platform: invitedPlatform, error: upsertErr } =
+      await createOrUpdateInvitedPlatform(targetUserId, platform, githubUserId);
+
+    if (upsertErr) {
+      console.log('Error creating invited platform:', upsertErr);
+      return {
+        status: 500,
+        body: { error: 'Something went wrong while creating invited platform' },
+      };
+    }
+
+    return {
+      status: 200,
+      body: {
+        success: true,
+        platform: invitedPlatform,
+        invited: {
+          target_user_id: targetUserId,
+          github_user_id: githubUserId,
+        },
+      },
+    };
+  } catch (e) {
+    console.log('Error inviting user to platform:', e);
+    return {
+      status: 500,
+      body: { error: 'Something went wrong while inviting user' },
+    };
+  }
+}
+
+export async function getPlatformUsers(userId, platformId) {
+  try {
+    const { platform, error: pErr } = await fetchPlatformById(
+      userId,
+      platformId
+    );
+    if (pErr) {
+      return { status: 500, body: { error: 'Error fetching platform' } };
+    }
+    if (!platform) {
+      return { status: 404, body: { error: 'Platform not found' } };
+    }
+
+    const { users, error } = await fetchPlatformUsers(
+      platform.primary_id,
+      platform.platform_type
+    );
+    if (error) {
+      console.log('Error fetching platform users:', error);
+      return { status: 500, body: { error: 'Error fetching platform users' } };
+    }
+
+    const result = users.map((u) => ({
+      platform_row_id: u.id,
+      user_id: u.user_id,
+      is_connected: u.is_connected,
+      connected_at: u.connected_at,
+      email: u.profiles?.email ?? null,
+      full_name: u.profiles?.full_name ?? null,
+      avatar_url: u.profiles?.avatar_url ?? null,
+    }));
+
+    return { status: 200, body: { users: result, platform } };
+  } catch (e) {
+    console.log('Error in getPlatformUsers:', e);
+    return { status: 500, body: { error: 'Something went wrong' } };
+  }
+}
+
+export async function searchUsers(keyword) {
+  try {
+    const { profiles, error } = await searchProfilesByEmail(keyword);
+    if (error) {
+      console.log('Error searching users:', error);
+      return { status: 500, body: { error: 'Search failed' } };
+    }
+    return { status: 200, body: { users: profiles } };
+  } catch (e) {
+    console.log('Error in searchUsers:', e);
+    return { status: 500, body: { error: 'Something went wrong' } };
+  }
+}
+
+export async function sendPlatformInvites(userId, platformId, body = {}) {
+  const { user_ids = [] } = body;
+
+  if (!platformId) {
+    return { status: 400, body: { error: 'Missing platform id' } };
+  }
+  if (!Array.isArray(user_ids) || user_ids.length === 0) {
+    return { status: 400, body: { error: 'user_ids array is required' } };
+  }
+
+  try {
+    const { platform, error: pErr } = await fetchPlatformById(
+      userId,
+      platformId
+    );
+    if (pErr) {
+      return { status: 500, body: { error: 'Error fetching platform' } };
+    }
+    if (!platform) {
+      return { status: 404, body: { error: 'Platform not found' } };
+    }
+
+    if (platform.platform_type !== 'github') {
+      return {
+        status: 400,
+        body: { error: 'Only github platform invite is supported' },
+      };
+    }
+
+    const accountType =
+      platform?.platform_metadata?.installation_details?.account?.type ??
+      platform?.user_metadata?.account_type ??
+      null;
+
+    if (String(accountType).toLowerCase() !== 'organization') {
+      return {
+        status: 400,
+        body: { error: 'Invite is only available for organization accounts' },
+      };
+    }
+
+    const { profile: inviterProfile } = await fetchUserProfile(userId);
+    const inviterName =
+      inviterProfile?.full_name || inviterProfile?.email || 'A team member';
+
+    const results = [];
+    for (const targetId of user_ids) {
+      const { profile: targetProfile, error: tErr } =
+        await fetchUserProfile(targetId);
+      if (tErr || !targetProfile) {
+        results.push({
+          user_id: targetId,
+          success: false,
+          error: 'User not found',
+        });
+        continue;
+      }
+
+      const emailResult = await sendInvitationEmail({
+        toEmail: targetProfile.email,
+        inviterName,
+        platformTitle: platform.title || platform.platform_type,
+        platformId,
+      });
+
+      results.push({
+        user_id: targetId,
+        email: targetProfile.email,
+        success: emailResult.success,
+        error: emailResult.error ?? null,
+      });
+    }
+
+    return { status: 200, body: { success: true, results } };
+  } catch (e) {
+    console.log('Error sending platform invites:', e);
     return { status: 500, body: { error: 'Something went wrong' } };
   }
 }

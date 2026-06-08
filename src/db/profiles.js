@@ -105,3 +105,15 @@ export async function updateProfileFields(userId, fields) {
     .maybeSingle();
   return { profile: data ?? null, error: error ?? null };
 }
+
+export async function searchProfilesByEmail(keyword) {
+  if (!keyword || keyword.trim().length < 2) {
+    return { profiles: [], error: null };
+  }
+  const { data, error } = await client
+    .from('profiles')
+    .select('id, email, full_name, avatar_url')
+    .ilike('email', `%${keyword.trim()}%`)
+    .limit(20);
+  return { profiles: data ?? [], error: error ?? null };
+}
