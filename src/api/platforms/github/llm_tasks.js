@@ -1,5 +1,5 @@
 import { SKY_DECK_GROQ_API_KEY } from '../../env_variables.js';
-import { ActivityTypes, ActivitySubTypes } from './constants.js';
+import { ActivityTypes } from './constants.js';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
@@ -8,55 +8,40 @@ const MAX_SUMMARY_CHARS = 500;
 
 const PULL_REQUEST_SYSTEM_PROMPT = `You are a technical summariser for a developer activity dashboard.
 You will receive a JSON object representing a GitHub pull request event (any field may be null or 0 if unavailable).
-The object contains an "action" field that tells you what happened. Use it to choose the opening verb of your summary.
+The object contains an "action" field that tells you what happened. It is the primary signal — use it to determine the required opening of your summary.
 
 Action → required opening:
-- "opened"      → start with "Opened a pull request …"
-- "closed" + is_merged=true  → start with "Merged a pull request …"
-- "closed" + is_merged=false → start with "Closed a pull request …"
-- "reopened"    → start with "Reopened a pull request …"
-- "synchronize" → start with "Updated a pull request with new commits …"
-- anything else → start with "Updated a pull request …"
+- "opened"      → must start with "Opened a pull request …"
+- "closed" + is_merged=true  → must start with "Merged a pull request …"
+- "closed" + is_merged=false → must start with "Closed a pull request …"
+- "reopened"    → must start with "Reopened a pull request …"
+- "synchronize" → must start with "Updated a pull request with new commits …"
+- "edited"      → must start with "Edited a pull request …"
+- anything else → must start with "Updated a pull request …"
+
+For action="edited", the object also contains a "changes" field describing what was modified:
+- "changes.title": { "from": "<old title>" } — if the title was renamed.
+- "changes.body":  { "from": "<old body>" }  — if the description was changed.
+- "changes.base":  { "ref": { "from": "<old base branch>" } } — if the base branch was retargeted.
+Any field absent from "changes" was not modified.
 
 Rules:
 - Hard limit: ${MAX_SUMMARY_CHARS} characters. Truncate with "…" if needed.
 - Plain text only — no markdown, no bullet points, no line breaks.
-- After the opening verb, describe the WORK: use the title, body (if present), and labels.
-- If body is present and informative, use it to elaborate (e.g. "… replacing session auth with JWT").
+- For action="edited": describe WHAT changed — title renamed (old → new), description updated, base branch retargeted. Name old and new values when both are available and meaningful. List all changed fields in one sentence.
+- For all other actions: after the opening verb, describe the WORK using title, body (if present), and labels.
 - If body is null or empty, infer from the title alone — never say the body is missing.
-- Do NOT mention the author, PR number, branch names, or raw URLs.
-- Do NOT mention null values or zero-value stats.
+- Do NOT mention the author, PR number, branch names (except base retarget for edited), or raw URLs.
+- Do NOT mention null values, zero-value stats, or unchanged fields.
 
 Example outputs:
 Opened a pull request replacing session-based authentication with stateless JWT tokens.
 Merged a pull request fixing an unbounded memory growth issue in the Redis cache layer.
 Closed a pull request that added experimental gRPC support without merging.
 Reopened a pull request adding dark-mode support after resolving the CSS conflicts.
-Updated a pull request with new commits addressing the review feedback on input validation.`;
-
-const PULL_REQUEST_EDITED_SYSTEM_PROMPT = `You are a technical summariser for a developer activity dashboard.
-You will receive a JSON object representing a GitHub pull request "edited" event with these fields:
-- "title": the current (new) title of the pull request.
-- "changes": an object describing what was modified. It may contain:
-  - "title": { "from": "<old title>" } — if the title was changed.
-  - "body": { "from": "<old body>" } — if the description was changed.
-  - "base": { "ref": { "from": "<old base branch>" } } — if the target base branch was changed.
-  Any field not present in "changes" was not modified. Any value may be null or empty.
-Write one plain-text sentence describing what was edited on the pull request.
-
-Rules:
-- Hard limit: ${MAX_SUMMARY_CHARS} characters. Truncate with "…" if needed.
-- Plain text only — no markdown, no bullet points, no line breaks.
-- Focus on WHAT changed: title renamed, description updated, base branch retargeted. Name the old and new values when both are available and meaningful.
-- If only one field changed, describe that change precisely.
-- If multiple fields changed, list all changes in one sentence.
-- Do NOT mention the author, PR number, or raw URLs.
-- Do NOT mention null values, empty strings, or unchanged fields.
-
-Example outputs:
-Renamed the pull request from "Fix login bug" to "Fix OAuth token expiry on login".
-Retargeted the base branch from "main" to "release/v2" and updated the description.
-Updated the pull request description to clarify the rollback steps.`;
+Updated a pull request with new commits addressing the review feedback on input validation.
+Edited a pull request, renaming it from "Fix login bug" to "Fix OAuth token expiry on login".
+Edited a pull request, retargeting the base branch from "main" to "release/v2" and updating the description.`;
 
 const PUSH_SYSTEM_PROMPT = `You are a technical summariser for a developer activity dashboard.
 You will receive a JSON object representing a GitHub push event. It contains a "ref" (the branch ref), a "commits" array (each with a "message" and lists of "added", "removed", "modified" files), and flags like "forced", "created", "deleted" (any field may be null or empty).
@@ -79,29 +64,37 @@ Force-pushed a fix for the broken CI pipeline configuration.
 Initialised the project with base scaffolding, linting config, and a starter README.`;
 
 const PULL_REQUEST_REVIEW_SYSTEM_PROMPT = `You are a technical summariser for a developer activity dashboard.
-You will receive a JSON object representing a submitted GitHub pull request review with these fields (any may be null):
-- "state": the review outcome — exactly one of: "approved", "changes_requested", "commented".
-- "body": the reviewer's written feedback (may be null or empty).
+You will receive a JSON object representing a GitHub pull request review event with these fields (any may be null):
+- "action": what happened — exactly one of: "submitted", "dismissed", "edited".
+- "state": the review verdict (only relevant when action="submitted") — one of: "approved", "changes_requested", "commented".
+- "body": the current review text (may be null or empty).
 - "pull_request_title": the title of the pull request being reviewed (may be null).
-- "author_association": the reviewer's relationship to the repo (e.g. OWNER, COLLABORATOR).
+- "changes": present only when action="edited". May contain:
+  - "body": { "from": "<old review text>" } — if the review body was changed.
 
-The "state" field is the primary signal — it MUST determine the first word(s) of your summary:
-- "approved"           → must start with "Approved …"
-- "changes_requested"  → must start with "Requested changes to …"
-- "commented"          → must start with "Left a comment on …"
+The "action" field is the primary signal — it MUST determine the required opening:
+- action="submitted" + state="approved"           → must start with "Approved …"
+- action="submitted" + state="changes_requested"  → must start with "Requested changes to …"
+- action="submitted" + state="commented"          → must start with "Left a comment on …"
+- action="dismissed"                              → must start with "Dismissed a review on …"
+- action="edited"                                 → must start with "Edited a review on …"
 
 Rules:
 - Hard limit: ${MAX_SUMMARY_CHARS} characters. Truncate with "…" if needed.
 - Plain text only — no markdown, no bullet points, no line breaks.
-- After the mandatory opening, describe the pull request using "pull_request_title" and, if "body" is informative, incorporate the key feedback point.
-- If "body" is null or empty, base the rest of the summary on "state" and "pull_request_title" alone — never say the body is missing.
+- After the mandatory opening, always reference the pull request using "pull_request_title".
+- For action="submitted" or "dismissed": if "body" is informative, incorporate the key feedback point.
+- For action="edited": describe what changed using "changes.body.from" (old text) vs "body" (new text). If "changes.body.from" is null or empty, simply note the review body was updated.
+- If "body" is null or empty and no changes context is available, base the summary on "action", "state", and "pull_request_title" alone — never say any field is missing.
 - Do NOT mention reviewer name, review ID, commit SHAs, raw URLs, or author_association.
 - Do NOT mention null values or empty strings.
 
 Example outputs:
 Approved the pull request replacing session-based auth with stateless JWT tokens.
 Requested changes to the database migration runner, noting the rollback path handles only happy-path exits.
-Left a comment on the rate-limiter PR questioning whether the exponential backoff caps at a safe ceiling.`;
+Left a comment on the rate-limiter PR questioning whether the exponential backoff caps at a safe ceiling.
+Dismissed a review on the caching layer refactor.
+Edited a review on the JWT migration PR, updating the feedback to clarify that the refresh token rotation logic also needs testing.`;
 
 async function callGroq(systemPrompt, userMessage) {
   try {
@@ -166,20 +159,8 @@ export async function generateActivitySummary(document) {
         return null;
       }
 
-      if (document.activity_sub_type === ActivitySubTypes.PR_EDITED) {
-        // For edited events focus the model only on what changed
-        const userMessage = JSON.stringify({
-          title: document.pull_request.title,
-          changes: document.pull_request.changes,
-        });
-        summary = await callGroq(
-          PULL_REQUEST_EDITED_SYSTEM_PROMPT,
-          userMessage
-        );
-      } else {
-        const userMessage = JSON.stringify(document.pull_request);
-        summary = await callGroq(PULL_REQUEST_SYSTEM_PROMPT, userMessage);
-      }
+      const userMessage = JSON.stringify(document.pull_request);
+      summary = await callGroq(PULL_REQUEST_SYSTEM_PROMPT, userMessage);
     } else if (document.activity_type === ActivityTypes.PUSH) {
       if (!document.push_event) {
         console.warn(

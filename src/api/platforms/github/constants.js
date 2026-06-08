@@ -17,4 +17,6 @@ export class ActivitySubTypes {
 
   // Pull Request Review sub-types
   static PR_REVIEW_SUBMITTED = 'submitted';
+  static PR_REVIEW_EDITED = 'edited';
+  static PR_REVIEW_DISMISSED = 'dismissed';
 }

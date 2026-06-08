@@ -271,6 +271,7 @@ export class PushActivitySchema extends BaseSchema {
 
 class PullRequestReviewSchema {
   static fields = {
+    action: { path: 'action', default: null },
     author_association: { path: 'review.author_association', default: null },
     body: { path: 'review.body', default: null },
     commit_id: { path: 'review.commit_id', default: null },
@@ -281,6 +282,7 @@ class PullRequestReviewSchema {
     state: { path: 'review.state', default: null },
     submitted_at: { path: 'review.submitted_at', default: null },
     updated_at: { path: 'review.updated_at', default: null },
+    changes: { path: 'changes', default: null },
   };
 }
 
@@ -289,6 +291,34 @@ export class PullRequestReviewSubmittedSchema extends BaseSchema {
   static activity_sub_type = ActivitySubTypes.PR_REVIEW_SUBMITTED;
   static timestamp = {
     path: 'pull_request_review.submitted_at',
+    default: null,
+    transform: (v) => (v ? new Date(v).getTime() : null),
+  };
+
+  static groups = {
+    pull_request_review: PullRequestReviewSchema,
+  };
+}
+
+export class PullRequestReviewEditedSchema extends BaseSchema {
+  static activity_type = ActivityTypes.PULL_REQUEST_REVIEW;
+  static activity_sub_type = ActivitySubTypes.PR_REVIEW_EDITED;
+  static timestamp = {
+    path: 'pull_request_review.updated_at',
+    default: null,
+    transform: (v) => (v ? new Date(v).getTime() : null),
+  };
+
+  static groups = {
+    pull_request_review: PullRequestReviewSchema,
+  };
+}
+
+export class PullRequestReviewDismissedSchema extends BaseSchema {
+  static activity_type = ActivityTypes.PULL_REQUEST_REVIEW;
+  static activity_sub_type = ActivitySubTypes.PR_REVIEW_DISMISSED;
+  static timestamp = {
+    path: 'pull_request_review.dismissed_at',
     default: null,
     transform: (v) => (v ? new Date(v).getTime() : null),
   };

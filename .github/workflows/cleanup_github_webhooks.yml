@@ -1,0 +1,23 @@
+name: Cleanup GitHub Webhooks
+
+on:
+  schedule:
+    # Runs at 00:00 UTC and 12:00 UTC every day
+    - cron: '0 0,12 * * *'
+
+  # Optional: allows manual triggering from GitHub UI
+  workflow_dispatch:
+
+jobs:
+  call-api:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Call POST API
+        run: |
+          curl -X POST \
+            "https://sky-deck.netlify.app/api/tasks/cleanup-github-webhooks" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "source": "github-actions"
+            }'
