@@ -1,11 +1,5 @@
-import {
-  supabaseAdmin,
-  supabaseAnon,
-  createAnonClient,
-} from '../api/supabase_admin.js';
+import { client } from '../api/supabase_admin.js';
 import { SKY_DECK_APP_URL } from '../api/env_variables.js';
-
-const client = supabaseAdmin ?? supabaseAnon;
 
 function appUrl(path = '') {
   const base = (SKY_DECK_APP_URL || '').replace(/\/$/, '');
@@ -14,9 +8,8 @@ function appUrl(path = '') {
 }
 
 export async function authSignup(email, password) {
-  const c = supabaseAnon ?? client;
-  if (!c) return { data: null, error: 'Server not configured' };
-  const { data, error } = await c.auth.signUp({
+  if (!client) return { data: null, error: 'Server not configured' };
+  const { data, error } = await client.auth.signUp({
     email,
     password,
     options: { emailRedirectTo: appUrl('/verify-email') },
@@ -25,23 +18,24 @@ export async function authSignup(email, password) {
 }
 
 export async function authSignin(email, password) {
-  const c = supabaseAnon ?? client;
-  if (!c) return { data: null, error: 'Server not configured' };
-  const { data, error } = await c.auth.signInWithPassword({ email, password });
+  if (!client) return { data: null, error: 'Server not configured' };
+  const { data, error } = await client.auth.signInWithPassword({
+    email,
+    password,
+  });
   return { data, error };
 }
 
 export async function authSignout(accessToken) {
   if (!accessToken) return { error: 'Missing access token' };
-  if (!supabaseAdmin) return { error: 'Server not configured' };
-  const { error } = await supabaseAdmin.auth.admin.signOut(accessToken);
+  if (!client) return { error: 'Server not configured' };
+  const { error } = await client.auth.admin.signOut(accessToken);
   return { error: error?.message ?? null };
 }
 
 export async function authForgotPassword(email) {
-  const c = supabaseAnon ?? client;
-  if (!c) return { data: null, error: 'Server not configured' };
-  const { data, error } = await c.auth.resetPasswordForEmail(email, {
+  if (!client) return { data: null, error: 'Server not configured' };
+  const { data, error } = await client.auth.resetPasswordForEmail(email, {
     redirectTo: appUrl('/reset-password'),
   });
   return { data, error };
@@ -52,9 +46,8 @@ export async function authResetPassword(
   refreshToken,
   newPassword
 ) {
-  const c = createAnonClient();
-  if (!c) return { data: null, error: 'Server not configured' };
-  const { error: setErr } = await c.auth.setSession({
+  if (!client) return { data: null, error: 'Server not configured' };
+  const { error: setErr } = await client.auth.setSession({
     access_token: accessToken,
     refresh_token: refreshToken ?? '',
   });
@@ -65,9 +58,8 @@ export async function authResetPassword(
 
 export async function authRefreshSession(refreshToken) {
   if (!refreshToken) return { data: null, error: 'Missing refresh token' };
-  const c = createAnonClient();
-  if (!c) return { data: null, error: 'Server not configured' };
-  const { data, error } = await c.auth.refreshSession({
+  if (!client) return { data: null, error: 'Server not configured' };
+  const { data, error } = await client.auth.refreshSession({
     refresh_token: refreshToken,
   });
   return { data, error };

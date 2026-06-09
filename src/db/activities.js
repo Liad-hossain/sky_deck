@@ -1,6 +1,4 @@
-import { supabaseAdmin, supabaseAnon } from '../api/supabase_admin.js';
-
-const client = supabaseAdmin ?? supabaseAnon;
+import { client } from '../api/supabase_admin.js';
 
 export async function fetchActivityById(activityId) {
   if (!client) return { data: null, error: 'Server not configured' };

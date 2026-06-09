@@ -1,7 +1,5 @@
-import { supabaseAdmin, supabaseAnon } from '../api/supabase_admin.js';
+import { client } from '../api/supabase_admin.js';
 import { getPgPool } from './pg_client.js';
-
-const client = supabaseAdmin ?? supabaseAnon;
 
 export async function fetchUserPlatforms(userId, isConnected = null) {
   let query = client

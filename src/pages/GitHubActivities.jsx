@@ -1189,7 +1189,7 @@ export default function GitHubActivities() {
   }, []);
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-[#0f0c29] via-[#1a1040] to-[#24243e] text-white">
+    <div className="flex h-screen bg-gradient-to-br from-[#0f0c29] via-[#1a1040] to-[#24243e] text-white">
       <Navbar />
 
       {/* ── Main area (after navbar) ──────────────────────── */}
