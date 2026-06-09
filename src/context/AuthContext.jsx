@@ -48,7 +48,16 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  // ── Fetch profile once user is set ──
+  useEffect(() => {
+    const handleExpired = () => {
+      setUser(null);
+      setProfile(null);
+    };
+    window.addEventListener('sky-deck:session-expired', handleExpired);
+    return () =>
+      window.removeEventListener('sky-deck:session-expired', handleExpired);
+  }, []);
+
   useEffect(() => {
     if (!user) {
       setProfileLoading(false);

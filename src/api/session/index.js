@@ -41,10 +41,15 @@ async function refreshSession() {
   }
 }
 
-/**
- * Authenticated fetch. Auto-refreshes session on 401 once.
- * Returns { ok, status, data, error }.
- */
+let _refreshPromise = null;
+function refreshSessionOnce() {
+  if (_refreshPromise) return _refreshPromise;
+  _refreshPromise = refreshSession().finally(() => {
+    _refreshPromise = null;
+  });
+  return _refreshPromise;
+}
+
 export async function apiFetch(path, options = {}) {
   const isFormData =
     typeof FormData !== 'undefined' && options.body instanceof FormData;
@@ -62,12 +67,12 @@ export async function apiFetch(path, options = {}) {
   let res = await fetch(path, { ...options, headers: buildHeaders(session) });
 
   if (res.status === 401 && session?.refresh_token) {
-    const fresh = await refreshSession();
+    const fresh = await refreshSessionOnce();
     if (fresh) {
       res = await fetch(path, { ...options, headers: buildHeaders(fresh) });
     } else {
-      // Refresh failed — clear stale session; AuthContext will redirect via ProtectedRoute
       clearSession();
+      window.dispatchEvent(new CustomEvent('sky-deck:session-expired'));
       return { ok: false, status: 401, data: null, error: 'Session expired' };
     }
   }
