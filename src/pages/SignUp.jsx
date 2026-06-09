@@ -57,7 +57,7 @@ export default function SignUp() {
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [resending, setResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-  const { signUp } = useAuth();
+  const { signUp, resendConfirmation } = useAuth();
 
   // Countdown timer for resend cooldown
   useEffect(() => {
@@ -68,9 +68,9 @@ export default function SignUp() {
 
   const handleResend = async () => {
     setResending(true);
-    const { error } = await signUp(email, password);
+    const { error } = await resendConfirmation(email);
     setResending(false);
-    if (error && !error.message.toLowerCase().includes('already registered')) {
+    if (error) {
       toast.error(error.message);
     } else {
       toast.success('Verification email resent!');

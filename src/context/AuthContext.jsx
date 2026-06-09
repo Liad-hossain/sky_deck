@@ -105,6 +105,14 @@ export function AuthProvider({ children }) {
     return { data: data?.data ?? null, error: null };
   };
 
+  const resendConfirmation = async (email) => {
+    const { ok, error } = await apiFetch('/api/resend-confirmation', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+    return ok ? { error: null } : { error: { message: error } };
+  };
+
   const signIn = async (...args) => {
     const { email, password } =
       typeof args[0] === 'object' && args[0] !== null
@@ -225,6 +233,7 @@ export function AuthProvider({ children }) {
     signOut,
     forgotPassword,
     resetPassword,
+    resendConfirmation,
     getProfile,
     updateProfile,
     uploadAvatar,

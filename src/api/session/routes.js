@@ -7,6 +7,7 @@ import {
   resetPasswordRequest,
   refreshSession,
   getSessionUser,
+  resendConfirmationEmail,
 } from './services.js';
 import { authenticateUser } from '../authentication.js';
 
@@ -15,6 +16,12 @@ const api = new Hono();
 api.post('/signup', async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const result = await signupUser(body);
+  return c.json(result.body, result.status);
+});
+
+api.post('/resend-confirmation', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const result = await resendConfirmationEmail(body);
   return c.json(result.body, result.status);
 });
 

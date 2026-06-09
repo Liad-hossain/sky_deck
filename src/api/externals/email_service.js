@@ -45,6 +45,31 @@ function createTransporter() {
   });
 }
 
+export async function sendConfirmationEmail({ toEmail, confirmationUrl }) {
+  const transporter = createTransporter();
+  if (!transporter) {
+    console.warn('SMTP not configured — skipping confirmation email send');
+    return { success: false, error: 'Email service not configured' };
+  }
+
+  const htmlBody = loadTemplate('confirmation.html', {
+    CONFIRMATION_URL: confirmationUrl,
+  });
+
+  try {
+    const info = await transporter.sendMail({
+      from: 'Sky Deck',
+      to: toEmail,
+      subject: 'Verify your Sky Deck email address',
+      html: htmlBody,
+    });
+    return { success: true, messageId: info.messageId ?? null };
+  } catch (e) {
+    console.error('Error sending confirmation email:', e);
+    return { success: false, error: e.message || String(e) };
+  }
+}
+
 export async function sendInvitationEmail({
   toEmail,
   inviterName,
