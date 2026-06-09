@@ -1,4 +1,4 @@
-import { client } from '../api/supabase_admin.js';
+import { supabaseAdmin, client } from '../api/supabase_admin.js';
 import { SKY_DECK_APP_URL } from '../api/env_variables.js';
 
 function appUrl(path = '') {
@@ -9,10 +9,116 @@ function appUrl(path = '') {
 
 export async function authSignup(email, password) {
   if (!client) return { data: null, error: 'Server not configured' };
+  const admin = supabaseAdmin?.auth?.admin;
+
+  if (admin) {
+    const { data: listData } = await admin.listUsers({ perPage: 1000 });
+    const existing = (listData?.users ?? []).find(
+      (u) => u.email?.toLowerCase() === email.toLowerCase()
+    );
+
+    if (existing) {
+      if (existing.email_confirmed_at) {
+        return {
+          data: null,
+          error: { message: 'An account with this email already exists.' },
+        };
+      }
+      const { error: deleteError } = await admin.deleteUser(existing.id);
+      if (deleteError) {
+        console.error('Error deleting unconfirmed user:', deleteError);
+        return { data: null, error: deleteError };
+      }
+    }
+
+    const { data: createData, error: createError } = await admin.createUser({
+      email,
+      password,
+      email_confirm: false,
+    });
+    if (createError) return { data: null, error: createError };
+
+    const { data: linkData, error: linkError } = await admin.generateLink({
+      type: 'signup',
+      email,
+      password,
+      options: { redirectTo: appUrl('/verify-email') },
+    });
+    if (linkError) return { data: null, error: linkError };
+
+    return {
+      data: {
+        user: createData.user ?? null,
+        confirmationLink: linkData.properties?.action_link ?? null,
+      },
+      error: null,
+    };
+  }
+
   const { data, error } = await client.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: appUrl('/verify-email') },
+    options: { emailRedirectTo: redirectUrl ?? appUrl('/verify-email') },
+  });
+  return { data: { user: data?.user ?? null, confirmationLink: null }, error };
+}
+
+export async function authResendConfirmation(email, redirectUrl) {
+  if (!client) return { data: null, error: 'Server not configured' };
+
+  const admin = supabaseAdmin?.auth?.admin;
+  if (admin) {
+    // Find the user — resend only makes sense for unconfirmed accounts
+    const { data: listData } = await admin.listUsers({ perPage: 1000 });
+    const existing = (listData?.users ?? []).find(
+      (u) => u.email?.toLowerCase() === email.toLowerCase()
+    );
+
+    if (!existing) {
+      return {
+        data: null,
+        error: { message: 'No account found for this email.' },
+      };
+    }
+    if (existing.email_confirmed_at) {
+      return {
+        data: null,
+        error: { message: 'This email is already confirmed.' },
+      };
+    }
+
+    // Delete the unconfirmed user so we can re-create with email_confirm: false
+    // and issue a completely fresh token (prevents stale-link confusion).
+    await admin.deleteUser(existing.id);
+
+    const { data: createData, error: createError } = await admin.createUser({
+      email,
+      password: existing.encrypted_password ?? '', // preserve existing password hash when possible
+      email_confirm: false,
+    });
+    if (createError) return { data: null, error: createError };
+
+    const { data: linkData, error: linkError } = await admin.generateLink({
+      type: 'signup',
+      email,
+      options: { redirectTo: redirectUrl ?? appUrl('/verify-email') },
+    });
+    if (linkError) return { data: null, error: linkError };
+
+    return {
+      data: {
+        user: createData.user ?? null,
+        confirmationLink: linkData.properties?.action_link ?? null,
+      },
+      error: null,
+    };
+  }
+
+  // Fallback: use auth.resend (subject to Supabase rate limits)
+  const { data, error } = await client.auth.resend({
+    type: 'signup',
+    email,
+    options: { emailRedirectTo: redirectUrl ?? appUrl('/verify-email') },
   });
   return { data, error };
 }
@@ -33,10 +139,10 @@ export async function authSignout(accessToken) {
   return { error: error?.message ?? null };
 }
 
-export async function authForgotPassword(email) {
+export async function authForgotPassword(email, redirectUrl) {
   if (!client) return { data: null, error: 'Server not configured' };
   const { data, error } = await client.auth.resetPasswordForEmail(email, {
-    redirectTo: appUrl('/reset-password'),
+    redirectTo: redirectUrl ?? appUrl('/reset-password'),
   });
   return { data, error };
 }

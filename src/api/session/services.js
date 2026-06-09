@@ -6,7 +6,9 @@ import {
   authForgotPassword,
   authResetPassword,
   authRefreshSession,
+  authResendConfirmation,
 } from '../../db/profiles.js';
+import { sendConfirmationEmail } from '../externals/email_service.js';
 
 export async function signupUser(body) {
   const email = (body?.email || '').trim();
@@ -16,8 +18,24 @@ export async function signupUser(body) {
 
   const { data, error } = await authSignup(email, password);
   if (error) {
-    console.log('Signup error:', error);
-    return { status: 500, body: { error: error.message ?? 'Signup failed' } };
+    const msg = error?.message ?? 'Signup failed';
+    console.log('Signup error:', msg);
+    const isConflict = /already (exists|registered)/i.test(msg);
+    return { status: isConflict ? 409 : 500, body: { error: msg } };
+  }
+
+  if (data?.confirmationLink) {
+    const emailResult = await sendConfirmationEmail({
+      toEmail: email,
+      confirmationUrl: data.confirmationLink,
+    });
+    if (!emailResult.success) {
+      console.error('Failed to send confirmation email:', emailResult.error);
+    }
+  } else {
+    console.warn(
+      'No confirmation link returned — Supabase built-in email used'
+    );
   }
 
   return { status: 200, body: { data } };
@@ -54,7 +72,8 @@ export async function forgotPasswordRequest(body) {
   const email = (body?.email || '').trim();
   if (!email) return { status: 400, body: { error: 'Email is required' } };
 
-  const { error } = await authForgotPassword(email);
+  const redirectUrl = buildRedirectUrl('/reset-password');
+  const { error } = await authForgotPassword(email, redirectUrl);
   if (error) {
     console.log('Forgot password error:', error);
     return {
@@ -62,6 +81,31 @@ export async function forgotPasswordRequest(body) {
       body: { error: error.message ?? 'Failed to send reset email' },
     };
   }
+  return { status: 200, body: { success: true } };
+}
+
+export async function resendConfirmationEmail(body) {
+  const email = (body?.email || '').trim();
+  if (!email) return { status: 400, body: { error: 'Email is required' } };
+
+  const redirectUrl = buildRedirectUrl('/verify-email');
+  const { data, error } = await authResendConfirmation(email, redirectUrl);
+  if (error) {
+    console.log('Resend confirmation error:', error);
+    return {
+      status: 500,
+      body: { error: error.message ?? 'Failed to resend confirmation email' },
+    };
+  }
+
+  // Send via our SMTP — no Supabase rate limits apply
+  if (data?.confirmationLink) {
+    await sendConfirmationEmail({
+      toEmail: email,
+      confirmationUrl: data.confirmationLink,
+    });
+  }
+
   return { status: 200, body: { success: true } };
 }
 
