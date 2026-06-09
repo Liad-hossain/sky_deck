@@ -44,7 +44,11 @@ jobs:
             FIREBASE_PRIVATE_KEY: "${FB_KEY_B64}",
             FIREBASE_DATABASE_URL: "${{ secrets.FIREBASE_DATABASE_URL }}",
             SKY_DECK_APP_URL: "${{ secrets.SKY_DECK_APP_URL }}",
-            SKY_DECK_GROQ_API_KEY: "${{ secrets.SKY_DECK_GROQ_API_KEY }}"
+            SKY_DECK_GROQ_API_KEY: "${{ secrets.SKY_DECK_GROQ_API_KEY }}",
+            SMTP_HOST: "${{ secrets.SMTP_HOST }}",
+            SMTP_PORT: "${{ secrets.SMTP_PORT }}",
+            SMTP_USER: "${{ secrets.SMTP_USER }}",
+            SMTP_PASS: "${{ secrets.SMTP_PASS }}"
           };
           EOF
           sed -i 's/^[[:space:]]*//' src/api/_secrets.js
