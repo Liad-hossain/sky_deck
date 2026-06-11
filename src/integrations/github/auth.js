@@ -1,4 +1,4 @@
-import { apiFetch } from '../../api/session';
+import { apiFetch } from '../../api/session/index.js';
 import {
   GITHUB_INSTALL_URL,
   GITHUB_INSTALL_REDIRECT_URL,

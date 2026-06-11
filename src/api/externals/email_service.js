@@ -83,7 +83,7 @@ export async function sendInvitationEmail({
   }
 
   const appUrl = (SKY_DECK_APP_URL || '').replace(/\/$/, '');
-  const inviteLink = `${appUrl}/github/${platformId}/invite`;
+  const inviteLink = `${appUrl}/github/${platformId}/accept-invite`;
 
   const htmlBody = loadTemplate('invitation.html', {
     INVITER_NAME: inviterName || 'A team member',
@@ -93,7 +93,7 @@ export async function sendInvitationEmail({
 
   try {
     const info = await transporter.sendMail({
-      from: `"Sky Deck" <${SMTP_USER}>`,
+      from: 'Sky Deck',
       to: toEmail,
       subject: `${inviterName || 'Someone'} invited you to ${platformTitle || 'a platform'} on Sky Deck`,
       html: htmlBody,

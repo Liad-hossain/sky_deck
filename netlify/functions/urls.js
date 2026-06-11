@@ -1,5 +1,3 @@
-import { Hono } from 'hono';
-
 console.log('[urls] module loaded, cwd=', process.cwd());
 
 let appPromise = null;
@@ -21,14 +19,15 @@ function resolveRouter(mod, exportName) {
 }
 
 async function buildApp() {
-  const [githubMod, sessionMod, accountMod, uploadMod, taskMod, envVars] =
+  const { Hono } = await import('hono');
+
+  const [githubMod, sessionMod, accountMod, uploadMod, taskMod] =
     await Promise.all([
       import('../../src/api/platforms/github/routes.js'),
       import('../../src/api/session/routes.js'),
       import('../../src/api/account/routes.js'),
       import('../../src/api/upload/routes.js'),
       import('../../src/api/tasks/routes.js'),
-      import('../../src/api/env_variables.js'),
     ]);
 
 
@@ -88,7 +87,7 @@ async function buildApp() {
   return app;
 }
 
-export const handler = async (event) => {
+exports.handler = async (event) => {
   try {
     if (!appPromise) appPromise = buildApp();
     const app = await appPromise;
@@ -102,10 +101,15 @@ export const handler = async (event) => {
       isBase64Encoded,
     } = event;
 
+    const functionPrefix = '/.netlify/functions/urls';
+    const requestPath = path.startsWith(functionPrefix)
+      ? `/api${path.slice(functionPrefix.length)}`
+      : path;
+
     const qs = queryStringParameters
       ? '?' + new URLSearchParams(queryStringParameters).toString()
       : '';
-    const url = `https://netlify.local${path}${qs}`;
+    const url = `https://netlify.local${requestPath}${qs}`;
 
     const bodyInit =
       body && isBase64Encoded

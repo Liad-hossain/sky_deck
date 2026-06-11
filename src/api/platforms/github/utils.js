@@ -1,5 +1,5 @@
 import { createSign, createPrivateKey } from 'crypto';
-import { GITHUB_APP_PRIVATE_KEY, GITHUB_APP_ID } from '../../env_variables';
+import { GITHUB_APP_PRIVATE_KEY, GITHUB_APP_ID } from '../../env_variables.js';
 
 function normalizePem(raw) {
   if (!raw) return '';

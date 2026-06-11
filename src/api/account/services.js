@@ -206,6 +206,7 @@ export async function fetchPlatformActivities(userId, platformId) {
       platform.platform_type
     );
     if (error) {
+      console.log('Error fetching platform activities:', error);
       return { status: 500, body: { error } };
     }
 
@@ -411,15 +412,14 @@ export async function fetchPlatformActivityFeeds(
   }
 }
 
-export async function inviteUserToPlatform(userId, platformId, body = {}) {
+export async function acceptInviteToPlatform(userId, platformId, body = {}) {
   const githubUserId = body?.github_user_id;
   const githubLogin = body?.github_login;
-  const targetUserId = userId;
 
   if (!platformId) {
     return { status: 400, body: { error: 'Missing platform id' } };
   }
-  if (!targetUserId) {
+  if (!userId) {
     return { status: 400, body: { error: 'Missing user id' } };
   }
   if (!githubUserId) {
@@ -436,16 +436,21 @@ export async function inviteUserToPlatform(userId, platformId, body = {}) {
   }
 
   try {
-    const { profile, error: userErr } = await fetchUserProfile(targetUserId);
+    const { profile, error: userErr } = await fetchUserProfile(userId);
     if (userErr) {
-      console.log('Error fetching target user for invite:', userErr);
+      console.log('Error fetching user for accept invite:', userErr);
       return {
         status: 500,
-        body: { error: 'Something went wrong while fetching target user' },
+        body: {
+          error: 'Something went wrong while fetching user for accept invite',
+        },
       };
     }
     if (!profile) {
-      return { status: 404, body: { error: 'Target user not found' } };
+      return {
+        status: 404,
+        body: { error: 'User to accept invitation not found' },
+      };
     }
 
     const { platform, error } = await fetchPlatformByAnyId(platformId);
@@ -591,9 +596,23 @@ export async function getPlatformUsers(userId, platformId) {
   }
 }
 
-export async function searchUsers(keyword) {
+export async function searchUsers(userId, platformId, keyword) {
   try {
-    const { profiles, error } = await searchProfilesByEmail(keyword);
+    const { platform, error: pErr } = await fetchPlatformById(
+      userId,
+      platformId
+    );
+    if (pErr) {
+      return { status: 500, body: { error: 'Error fetching platform' } };
+    }
+    if (!platform) {
+      return { status: 404, body: { error: 'Platform not found' } };
+    }
+
+    const { profiles, error } = await searchProfilesByEmail(
+      platform.primary_id,
+      keyword
+    );
     if (error) {
       console.log('Error searching users:', error);
       return { status: 500, body: { error: 'Search failed' } };

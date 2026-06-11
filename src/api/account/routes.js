@@ -10,7 +10,7 @@ import {
   toggleActivity,
   fetchPlatformActivityFeeds,
   fetchSubTypesByActivityIds,
-  inviteUserToPlatform,
+  acceptInviteToPlatform,
   getPlatformUsers,
   searchUsers,
   sendPlatformInvites,
@@ -71,16 +71,6 @@ api.delete(
   authenticateUser(async (c, user) => {
     const platformId = c.req.param('platformId');
     const result = await deletePlatform(user.id, platformId);
-    return c.json(result.body, result.status);
-  })
-);
-
-api.post(
-  '/platforms/:platformId/invite',
-  authenticateUser(async (c, user) => {
-    const platformId = c.req.param('platformId');
-    const body = await c.req.json().catch(() => ({}));
-    const result = await inviteUserToPlatform(user.id, platformId, body);
     return c.json(result.body, result.status);
   })
 );
@@ -148,11 +138,12 @@ api.get(
 
 // ── Search Users by Email ──────────────────────────────────────────────────
 api.get(
-  '/users/search',
-  authenticateUser(async (c) => {
+  '/platforms/:platformId/users/search',
+  authenticateUser(async (c, user) => {
     const url = new URL(c.req.url, 'http://localhost');
     const email = url.searchParams.get('email') ?? '';
-    const result = await searchUsers(email);
+    const platformId = c.req.param('platformId');
+    const result = await searchUsers(user.id, platformId, email);
     return c.json(result.body, result.status);
   })
 );
@@ -164,6 +155,16 @@ api.post(
     const platformId = c.req.param('platformId');
     const body = await c.req.json().catch(() => ({}));
     const result = await sendPlatformInvites(user.id, platformId, body);
+    return c.json(result.body, result.status);
+  })
+);
+
+api.post(
+  '/platforms/:platformId/accept-invite',
+  authenticateUser(async (c, user) => {
+    const platformId = c.req.param('platformId');
+    const body = await c.req.json().catch(() => ({}));
+    const result = await acceptInviteToPlatform(user.id, platformId, body);
     return c.json(result.body, result.status);
   })
 );

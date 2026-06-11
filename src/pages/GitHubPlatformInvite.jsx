@@ -20,7 +20,7 @@ export default function GitHubPlatformInvite() {
 
   const redirectUri = useMemo(() => {
     if (!platformId) return '';
-    return `${window.location.origin}/github/${platformId}/invite`;
+    return `${window.location.origin}/github/${platformId}/accept-invite`;
   }, [platformId]);
 
   useEffect(() => {
@@ -40,7 +40,6 @@ export default function GitHubPlatformInvite() {
 
     const code = searchParams.get('code');
     if (!code) {
-      // Start GitHub OAuth login for this page.
       const url = `/api/platforms/github/oauth-login-redirect?redirect_uri=${encodeURIComponent(
         redirectUri
       )}`;
@@ -64,7 +63,7 @@ export default function GitHubPlatformInvite() {
 
         setMessage('Linking you to the platform...');
         const inviteResp = await apiFetch(
-          `/api/account/platforms/${platformId}/invite`,
+          `/api/account/platforms/${platformId}/accept-invite`,
           {
             method: 'POST',
             body: JSON.stringify({

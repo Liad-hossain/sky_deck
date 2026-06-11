@@ -113,7 +113,7 @@ export default function App() {
             }
           />
           <Route
-            path="/github/:platformId/invite"
+            path="/github/:platformId/accept-invite"
             element={
               <ProtectedRoute>
                 <GitHubPlatformInvite />

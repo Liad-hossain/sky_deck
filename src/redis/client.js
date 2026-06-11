@@ -4,7 +4,7 @@ import {
   FIREBASE_CLIENT_EMAIL,
   FIREBASE_PRIVATE_KEY,
   FIREBASE_DATABASE_URL,
-} from '../api/env_variables';
+} from '../api/env_variables.js';
 
 let cachedToken = null;
 let tokenExpiresAt = 0; // epoch ms

@@ -7,8 +7,6 @@ import { GITHUB_APP_SLUG, GITHUB_CLIENT_ID } from '../../env_variables.js';
 const github = new Hono();
 
 // ── GET /api/platforms/github/install-redirect ────────────────────────────
-// Public: redirects the browser to the GitHub App install page so the FE
-// never needs to know the slug.
 github.get('/install-redirect', (c) => {
   if (!GITHUB_APP_SLUG)
     return c.json({ error: 'GitHub App not configured on server' }, 500);

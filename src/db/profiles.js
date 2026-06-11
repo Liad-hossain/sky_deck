@@ -1,5 +1,6 @@
 import { supabaseAdmin, client } from '../api/supabase_admin.js';
 import { SKY_DECK_APP_URL } from '../api/env_variables.js';
+import { getPgPool } from './pg_client.js';
 
 function appUrl(path = '') {
   const base = (SKY_DECK_APP_URL || '').replace(/\/$/, '');
@@ -68,7 +69,6 @@ export async function authResendConfirmation(email, redirectUrl) {
 
   const admin = supabaseAdmin?.auth?.admin;
   if (admin) {
-    // Find the user — resend only makes sense for unconfirmed accounts
     const { data: listData } = await admin.listUsers({ perPage: 1000 });
     const existing = (listData?.users ?? []).find(
       (u) => u.email?.toLowerCase() === email.toLowerCase()
@@ -87,13 +87,11 @@ export async function authResendConfirmation(email, redirectUrl) {
       };
     }
 
-    // Delete the unconfirmed user so we can re-create with email_confirm: false
-    // and issue a completely fresh token (prevents stale-link confusion).
     await admin.deleteUser(existing.id);
 
     const { data: createData, error: createError } = await admin.createUser({
       email,
-      password: existing.encrypted_password ?? '', // preserve existing password hash when possible
+      password: existing.encrypted_password ?? '',
       email_confirm: false,
     });
     if (createError) return { data: null, error: createError };
@@ -114,7 +112,6 @@ export async function authResendConfirmation(email, redirectUrl) {
     };
   }
 
-  // Fallback: use auth.resend (subject to Supabase rate limits)
   const { data, error } = await client.auth.resend({
     type: 'signup',
     email,
@@ -204,14 +201,24 @@ export async function updateProfileFields(userId, fields) {
   return { profile: data ?? null, error: error ?? null };
 }
 
-export async function searchProfilesByEmail(keyword) {
+export async function searchProfilesByEmail(primaryId, keyword) {
   if (!keyword || keyword.trim().length < 2) {
     return { profiles: [], error: null };
   }
-  const { data, error } = await client
-    .from('profiles')
-    .select('id, email, full_name, avatar_url')
-    .ilike('email', `%${keyword.trim()}%`)
-    .limit(20);
-  return { profiles: data ?? [], error: error ?? null };
+
+  const pool = getPgPool();
+  const { rows } = await pool.query(
+    `SELECT p.id, p.email, p.full_name, p.avatar_url
+     FROM public.profiles p
+     LEFT JOIN public.platforms pl
+       ON pl.user_id = p.id
+       AND pl.primary_id = $1
+       AND pl.is_connected = true
+       AND pl.is_archived = false
+     WHERE p.email ILIKE $2
+       AND pl.user_id IS NULL`,
+    [primaryId, `%${keyword.trim()}%`]
+  );
+
+  return { profiles: rows ?? [], error: null };
 }

@@ -472,13 +472,10 @@ function InvitationTab({ platform }) {
       searchTimeout.current = setTimeout(async () => {
         setSearching(true);
         const { ok, data } = await apiFetch(
-          `/api/account/users/search?email=${encodeURIComponent(value.trim())}`
+          `/api/account/platforms/${platform.id}/users/search?email=${encodeURIComponent(value.trim())}`
         );
         if (ok) {
-          const existingIds = new Set(platformUsers.map((u) => u.user_id));
-          setSearchResults(
-            (data?.users ?? []).filter((u) => !existingIds.has(u.id))
-          );
+          setSearchResults(data?.users ?? []);
         }
         setSearching(false);
       }, 400);

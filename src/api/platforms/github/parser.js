@@ -8,8 +8,8 @@ import {
   PullRequestReviewSubmittedSchema,
   PullRequestReviewEditedSchema,
   PullRequestReviewDismissedSchema,
-} from './schema';
-import { ActivityTypes, ActivitySubTypes } from './constants';
+} from './schema.js';
+import { ActivityTypes, ActivitySubTypes } from './constants.js';
 
 export function parseGitHubWebhookPayload(eventType, rawPayload) {
   let document = null;

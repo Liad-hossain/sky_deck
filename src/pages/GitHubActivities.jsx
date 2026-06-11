@@ -894,12 +894,14 @@ function ActivityFeed({ platformId, activity }) {
   const [selected, setSelected] = useState(null);
   const [subTypeMap, setSubTypeMap] = useState({});
   const loaded = useRef(new Set());
-  const subTypeFetched = useRef(false);
+  // Store the last fetched key so we re-fetch when either platformId or
+  // activity_id changes, even if the component doesn't remount.
+  const subTypeFetchedKey = useRef(null);
 
-  // Fetch sub_type descriptions — guarded by ref to prevent StrictMode double-invoke
   useEffect(() => {
-    if (subTypeFetched.current) return;
-    subTypeFetched.current = true;
+    const fetchKey = `${platformId}:${activity.activity_id}`;
+    if (subTypeFetchedKey.current === fetchKey) return;
+    subTypeFetchedKey.current = fetchKey;
     (async () => {
       const { ok, data } = await apiFetch(
         `/api/account/activity-sub-types?activity_ids=${activity.activity_id}`
@@ -911,11 +913,13 @@ function ActivityFeed({ platformId, activity }) {
         setSubTypeMap(map);
       }
     })();
-  }, [activity.activity_id]);
+  }, [platformId, activity.activity_id]);
 
   const load = useCallback(
     async (offset = 0) => {
-      const key = `${activity.activity_id}:${offset}`;
+      // Include platformId in the cache key so switching platforms always
+      // triggers a fresh fetch even when activity_id is the same across platforms.
+      const key = `${platformId}:${activity.activity_id}:${offset}`;
       if (loaded.current.has(key)) return;
       loaded.current.add(key);
       setFeed((prev) => ({ ...prev, loading: true, error: null }));
@@ -953,7 +957,9 @@ function ActivityFeed({ platformId, activity }) {
   const totalPages = Math.ceil(feed.total / PAGE_SIZE);
   const currentPage = Math.floor(feed.offset / PAGE_SIZE);
   const retry = () => {
-    loaded.current.delete(`${activity.activity_id}:${feed.offset}`);
+    loaded.current.delete(
+      `${platformId}:${activity.activity_id}:${feed.offset}`
+    );
     load(feed.offset);
   };
 
