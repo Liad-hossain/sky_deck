@@ -10,7 +10,7 @@ import {
 import { apiFetch } from '../api/session';
 
 export default function GitHubPlatformInvite() {
-  const { platformId } = useParams();
+  const { platformId: platformIdParam } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const started = useRef(false);
@@ -18,10 +18,11 @@ export default function GitHubPlatformInvite() {
   const [status, setStatus] = useState('loading'); // loading | success | error
   const [message, setMessage] = useState('Preparing invite flow...');
 
-  const redirectUri = useMemo(() => {
-    if (!platformId) return '';
-    return `${window.location.origin}/github/${platformId}/accept-invite`;
-  }, [platformId]);
+  const platformId = platformIdParam ?? searchParams.get('state');
+  const redirectUri = useMemo(
+    () => `${window.location.origin}/github/accept-invite`,
+    []
+  );
 
   useEffect(() => {
     if (started.current) return;
@@ -38,11 +39,17 @@ export default function GitHubPlatformInvite() {
       return;
     }
 
+    if (!platformId) {
+      setStatus('error');
+      setMessage('Missing platform id in the invite link.');
+      return;
+    }
+
     const code = searchParams.get('code');
     if (!code) {
       const url = `/api/platforms/github/oauth-login-redirect?redirect_uri=${encodeURIComponent(
         redirectUri
-      )}`;
+      )}&state=${encodeURIComponent(platformId)}`;
       window.location.href = url;
       return;
     }

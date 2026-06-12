@@ -185,6 +185,7 @@ export async function fetchUserProfile(userId) {
     .select('*')
     .eq('id', userId)
     .maybeSingle();
+
   return { profile: data ?? null, error: error ?? null };
 }
 

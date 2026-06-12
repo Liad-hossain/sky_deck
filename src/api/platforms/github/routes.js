@@ -19,13 +19,15 @@ github.get('/install-redirect', (c) => {
 // ── GET /api/platforms/github/oauth-login-redirect ─────────────────────────
 github.get('/oauth-login-redirect', (c) => {
   const redirectUri = c.req.query('redirect_uri');
+  const state = c.req.query('state');
   if (!redirectUri) return c.json({ error: 'Missing redirect_uri' }, 400);
   if (!GITHUB_CLIENT_ID)
     return c.json({ error: 'GitHub OAuth not configured on server' }, 500);
 
-  const authorizeUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(
+  let authorizeUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(
     GITHUB_CLIENT_ID
   )}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user`;
+  if (state) authorizeUrl += `&state=${encodeURIComponent(state)}`;
 
   return c.redirect(authorizeUrl, 302);
 });

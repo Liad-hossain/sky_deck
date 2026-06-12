@@ -673,7 +673,16 @@ export async function sendPlatformInvites(userId, platformId, body = {}) {
     for (const targetId of user_ids) {
       const { profile: targetProfile, error: tErr } =
         await fetchUserProfile(targetId);
-      if (tErr || !targetProfile) {
+      if (tErr) {
+        console.log(`Error fetching profile for user_id ${targetId}:`, tErr);
+        results.push({
+          user_id: targetId,
+          success: false,
+          error: 'Internal Error',
+        });
+        continue;
+      }
+      if (!targetProfile) {
         results.push({
           user_id: targetId,
           success: false,
