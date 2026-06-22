@@ -15,3 +15,5 @@ npm run dev
 - **Frontend**: React 18 + Vite + Tailwind CSS + Framer Motion
 - **Auth & DB**: Supabase (PostgreSQL + Auth + Edge Functions)
 - **Hosting**: Netlify (static SPA)
+
+<!-- END -->
