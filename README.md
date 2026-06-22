@@ -17,5 +17,3 @@ npm run dev
 - **Hosting**: Netlify (static SPA)
 
 <!-- END -->
-
-<!-- Happy Coding -->
